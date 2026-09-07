@@ -1,0 +1,62 @@
+ft_transcendence — Idée de projet
+==================================
+Date : 2026-08-26
+
+NOM DU PROJET
+-------------
+SyncWatch
+
+CONCEPT
+-------
+Une plateforme où plusieurs utilisateurs peuvent regarder des films/séries
+ensemble à distance, en temps réel : lecture synchronisée (play/pause/seek
+partagés), chat live pendant le visionnage, et système social (amis, profils,
+statut en ligne).
+
+Partie streaming :
+- Chaque utilisateur peut uploader ses propres vidéos (contenu perso /
+  libre de droits) qui sont stockées et servies par le backend.
+- Pas de transcodage / adaptive streaming (hors scope) : simple fichier
+  brut servi avec support des requêtes HTTP Range pour permettre le seek.
+- Alternative envisagée si besoin de simplifier : synchroniser une source
+  externe (façon Teleparty/Scener) sans héberger la vidéo soi-même.
+
+⚠️ Point de vigilance légal : ne jamais streamer du contenu commercial
+protégé sans licence. Rester sur du contenu perso / libre de droits.
+
+STACK TECHNIQUE
+----------------
+- Backend : Rust (Actix-web — vrai framework au sens du sujet, contrairement
+  à Axum qui est plus une lib mince). Développé en solo.
+- Frontend : à définir, framework JS léger (Vue ou Svelte plutôt que React
+  pour la courbe d'apprentissage). Attention : du JS vanilla ne compte PAS
+  comme "frontend framework" pour les points du module Web.
+- DB : Diesel (ORM) ou SQLx.
+- Temps réel : WebSockets natifs (Actix-web / Tokio).
+
+CONTRAINTES ÉQUIPE / PLANNING
+------------------------------
+- Rendu dans 3 mois, à temps plein.
+- Backend Rust fait en solo → risque de "bus factor" : documenter et
+  committer régulièrement pour qu'un coéquipier puisse dépanner en cas
+  de blocage.
+- Taille d'équipe finale (4 ou 5) pas encore connue.
+
+MODULES ENVISAGÉS (objectif 14 points)
+----------------------------------------
+Majeurs (2 pts chacun) — 8 pts :
+- Temps réel (WebSockets) — sync lecture, salons, présence
+- Interaction utilisateurs (chat, profils, amis) — cœur du concept
+- Gestion utilisateurs standard (profil, avatar, amis, statut en ligne)
+- Système de recommandation IA — suggère films/séries selon l'historique du groupe
+
+Mineurs (1 pt chacun) — 6 pts :
+- Upload / gestion de fichiers — héberger les vidéos
+- OAuth (Google/GitHub) — login rapide
+- Système de notifications — "un ami lance une session"
+- ORM pour la DB (Diesel)
+- Recherche avancée — filtres/tri sur le catalogue de contenus
+- 2FA (optionnel — envisager de remplacer par "Health check / status page"
+  ou "i18n" si jugé trop fastidieux pour 1 point)
+
+Total : 14/14
