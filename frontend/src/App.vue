@@ -6,7 +6,7 @@ const databaseOk = ref(null)
 
 onMounted(async () => {
   try {
-    const res = await fetch('http://localhost:8080/health')
+    const res = await fetch('http://localhost:3000/health')
     const data = await res.json()
     backendStatus.value = data.status
     databaseOk.value = data.database
