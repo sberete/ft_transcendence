@@ -1,45 +1,58 @@
+// ROADMAP — prochaines etapes du backend (voir idea.txt / roadmap.txt)
+//
+// Phase 1 — Fondations (en cours)
+//   [x] Serveur Actix-web + pool Postgres + /health
+//   [x] Structure modulaire (config, db, routes)
+//   [ ] Migrations SQL (table users, sessions, friends, rooms, messages, videos)
+//   [ ] mod auth : signup/login, hash+salt (argon2), sessions/JWT
+//   [ ] mod errors : enum ApiError + impl ResponseError (reponses d'erreur propres)
+//   [ ] Definir le contrat d'API (routes REST + evenements WebSocket) pour le(s) frontend(s)
+//
+// Phase 2 — Utilisateurs & social
+//   [ ] mod users : CRUD profil, upload avatar
+//   [ ] mod friends : ajout/suppression, statut en ligne
+//   [ ] OAuth (Google/GitHub)
+//
+// Phase 3 — Coeur temps reel (cf. day07 de la piscine Rust)
+//   [ ] mod ws : infra WebSocket (connexions, rooms, presence)
+//   [ ] Chat live
+//   [ ] Sync de lecture (play/pause/seek) par room
+//
+// Phase 4 — Contenu & IA
+//   [ ] mod media : upload/streaming video (HTTP Range requests)
+//   [ ] mod recommend : recommandation films/series
+//   [ ] Notifications, recherche avancee
+//
+// Phase 5 — Durcissement
+//   [ ] Module de securite restant (2FA ou remplacant), ORM finalise
+//   [ ] HTTPS, Privacy Policy / ToS, nettoyage warnings
+//   [ ] Tests multi-users concurrents, README complet
+
+mod config;
 mod db;
+mod routes;
 
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use serde::Serialize;
-use sqlx::postgres::PgPool;
-
-#[derive(Serialize)]
-struct HealthStatus {
-    status: &'static str,
-    database: bool,
-}
-
-async fn health(pool: web::Data<PgPool>) -> impl Responder {
-    let database_ok = sqlx::query("SELECT 1").execute(pool.get_ref()).await.is_ok();
-
-    HttpResponse::Ok().json(HealthStatus {
-        status: "ok",
-        database: database_ok,
-    })
-}
+use actix_web::{web, App, HttpServer};
+use config::Config;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let port: u16 = std::env::var("PORT")
-        .unwrap_or_else(|_| "8080".to_string())
-        .parse()
-        .expect("PORT must be a valid number");
+    let config = Config::from_env();
 
-    let pool = db::init_pool(&database_url)
+    let pool = db::init_pool(&config.database_url)
         .await
         .expect("failed to connect to the database");
 
-    log::info!("Starting server on 0.0.0.0:{port}");
+    log::info!("Starting server on 0.0.0.0:{}", config.port);
 
+    let port = config.port;
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .route("/health", web::get().to(health))
+            .configure(routes::configure)
     })
     .bind(("0.0.0.0", port))?
     .run()
