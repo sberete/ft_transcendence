@@ -35,8 +35,7 @@ mod routes;
 use actix_web::{web, App, HttpServer};
 use config::Config;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn run() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
@@ -57,4 +56,9 @@ async fn main() -> std::io::Result<()> {
     .bind(("0.0.0.0", port))?
     .run()
     .await
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    run().await
 }
