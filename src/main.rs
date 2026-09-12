@@ -36,10 +36,7 @@ use actix_web::{web, App, HttpServer};
 use config::Config;
 
 async fn run() -> std::io::Result<()> {
-    dotenvy::dotenv().ok();
-    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
-
-    let config = Config::from_env();
+    let config = Config::init();
 
     let pool = db::init_pool(&config.database_url)
         .await
