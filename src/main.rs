@@ -26,12 +26,14 @@
 // Phase 5 — Durcissement
 //   [ ] Module de securite restant (2FA ou remplacant), ORM finalise
 //   [ ] HTTPS, Privacy Policy / ToS, nettoyage warnings
+//   [ ] Restreindre le CORS aux origines connues (actuellement Cors::permissive())
 //   [ ] Tests multi-users concurrents, README complet
 
 mod config;
 mod db;
 mod routes;
 
+use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use config::Config;
 
@@ -46,7 +48,9 @@ async fn run() -> std::io::Result<()> {
 
     let port = config.port;
     HttpServer::new(move || {
+        // TODO Phase 5 : restreindre aux origines connues (plus de permissive() en prod)
         App::new()
+            .wrap(Cors::permissive())
             .app_data(web::Data::new(pool.clone()))
             .configure(routes::configure)
     })

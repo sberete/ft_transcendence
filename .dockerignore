@@ -3,3 +3,5 @@ target
 .env
 *.md
 idea.txt
+frontend/node_modules
+frontend/dist
