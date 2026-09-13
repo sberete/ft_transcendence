@@ -1,5 +1,7 @@
 .PHONY: up down dev logs re clean
 
+.DEFAULT_GOAL := dev
+
 # Lance tout le stack en Docker (single command du sujet)
 up:
 	docker compose up --build -d
