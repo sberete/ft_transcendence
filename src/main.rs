@@ -1,7 +1,7 @@
 // ROADMAP — prochaines etapes du backend (voir idea.txt / roadmap.txt)
 //
 // Phase 1 — Fondations (en cours)
-//   [x] Serveur Actix-web + pool Postgres + /health
+//   [x] Serveur Actix-web + pool Postgres
 //   [x] Structure modulaire (config, db, routes)
 //   [ ] Migrations SQL (table users, sessions, friends, rooms, messages, videos)
 //   [ ] mod auth : signup/login, hash+salt (argon2), sessions/JWT
