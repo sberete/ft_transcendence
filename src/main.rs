@@ -3,7 +3,7 @@
 // Phase 1 — Fondations (en cours)
 //   [x] Serveur Actix-web + pool Postgres
 //   [x] Structure modulaire (config, db, routes)
-//   [ ] Migrations SQL (table users, sessions, friends, rooms, messages, videos)
+//   [x] Migrations SQL (table users, sessions, friends, rooms, messages, videos)
 //   [ ] mod auth : signup/login, hash+salt (argon2), sessions/JWT
 //   [ ] mod errors : enum ApiError + impl ResponseError (reponses d'erreur propres)
 //   [ ] Definir le contrat d'API (routes REST + evenements WebSocket) pour le(s) frontend(s)
@@ -43,6 +43,10 @@ async fn run() -> std::io::Result<()> {
     let pool = db::init_pool(&config.database_url)
         .await
         .expect("failed to connect to the database");
+
+    db::run_migrations(&pool)
+        .await
+        .expect("failed to run database migrations");
 
     log::info!("Starting server on 0.0.0.0:{}", config.port);
 
