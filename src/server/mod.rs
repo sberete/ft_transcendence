@@ -5,7 +5,9 @@ use crate::config::Config;
 use crate::db;
 use crate::routes;
 
-pub async fn run() -> std::io::Result<()> {
+pub async fn run()
+    -> std::io::Result<()>
+{
     let config = Config::init();
 
     let pool = db::init_pool(&config.database_url)

@@ -5,7 +5,9 @@ use sqlx::PgPool;
 
 const SESSION_DURATION_HOURS: i64 = 24 * 7;
 
-pub async fn create_session(pool: &PgPool, user_id: i64) -> Result<String, sqlx::Error> {
+pub async fn create_session(pool: &PgPool, user_id: i64)
+    -> Result<String, sqlx::Error>
+{
     let mut raw = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut raw);
     let token = hex::encode(raw);
@@ -21,7 +23,9 @@ pub async fn create_session(pool: &PgPool, user_id: i64) -> Result<String, sqlx:
     Ok(token)
 }
 
-pub async fn delete_session(pool: &PgPool, token: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_session(pool: &PgPool, token: &str)
+    -> Result<(), sqlx::Error>
+{
     sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
         .bind(hash_token(token))
         .execute(pool)
@@ -30,7 +34,9 @@ pub async fn delete_session(pool: &PgPool, token: &str) -> Result<(), sqlx::Erro
     Ok(())
 }
 
-fn hash_token(token: &str) -> String {
+fn hash_token(token: &str)
+    -> String
+{
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
     hex::encode(hasher.finalize())

@@ -17,7 +17,9 @@ struct ErrorBody {
 }
 
 impl fmt::Display for ApiError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter)
+        -> fmt::Result
+    {
         match self {
             ApiError::BadRequest(msg) => write!(f, "{msg}"),
             ApiError::Unauthorized => write!(f, "unauthorized"),
@@ -28,7 +30,9 @@ impl fmt::Display for ApiError {
 }
 
 impl ResponseError for ApiError {
-    fn status_code(&self) -> StatusCode {
+    fn status_code(&self)
+        -> StatusCode
+    {
         match self {
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Unauthorized => StatusCode::UNAUTHORIZED,
@@ -37,7 +41,9 @@ impl ResponseError for ApiError {
         }
     }
 
-    fn error_response(&self) -> HttpResponse {
+    fn error_response(&self)
+        -> HttpResponse
+    {
         HttpResponse::build(self.status_code()).json(ErrorBody {
             error: self.to_string(),
         })

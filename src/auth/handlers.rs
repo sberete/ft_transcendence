@@ -29,10 +29,9 @@ struct UserCredentials {
     password_hash: String,
 }
 
-pub async fn signup(
-    pool: web::Data<PgPool>,
-    payload: web::Json<SignupRequest>,
-) -> Result<HttpResponse, ApiError> {
+pub async fn signup(pool: web::Data<PgPool>, payload: web::Json<SignupRequest>) 
+    -> Result<HttpResponse, ApiError> 
+{
     if payload.username.trim().is_empty() || payload.email.trim().is_empty() {
         return Err(ApiError::BadRequest(
             "username and email are required".into(),
@@ -68,10 +67,9 @@ pub async fn signup(
     Ok(HttpResponse::Created().json(AuthResponse { token }))
 }
 
-pub async fn login(
-    pool: web::Data<PgPool>,
-    payload: web::Json<LoginRequest>,
-) -> Result<HttpResponse, ApiError> {
+pub async fn login(pool: web::Data<PgPool>, payload: web::Json<LoginRequest>) 
+    -> Result<HttpResponse, ApiError> 
+{
     let user: UserCredentials = sqlx::query_as(
         "SELECT id, password_hash FROM users WHERE email = $1",
     )
@@ -94,7 +92,9 @@ pub async fn login(
     Ok(HttpResponse::Ok().json(AuthResponse { token }))
 }
 
-pub async fn logout(pool: web::Data<PgPool>, req: HttpRequest) -> Result<HttpResponse, ApiError> {
+pub async fn logout(pool: web::Data<PgPool>, req: HttpRequest) 
+    -> Result<HttpResponse, ApiError> 
+{
     let token = extract_bearer_token(&req).ok_or(ApiError::Unauthorized)?;
 
     session::delete_session(pool.get_ref(), token)
@@ -104,7 +104,9 @@ pub async fn logout(pool: web::Data<PgPool>, req: HttpRequest) -> Result<HttpRes
     Ok(HttpResponse::NoContent().finish())
 }
 
-fn extract_bearer_token(req: &HttpRequest) -> Option<&str> {
+fn extract_bearer_token(req: &HttpRequest) 
+    -> Option<&str> 
+{
     req.headers()
         .get("Authorization")?
         .to_str()
