@@ -2,14 +2,15 @@ mod handlers;
 mod password;
 mod session;
 
-use actix_web::web;
+use axum::routing::post;
+use axum::Router;
+use sqlx::PgPool;
 
-pub fn configure(cfg: &mut web::ServiceConfig) 
+pub fn router()
+    -> Router<PgPool>
 {
-    cfg.service(
-        web::scope("/auth")
-            .route("/signup", web::post().to(handlers::signup))
-            .route("/login", web::post().to(handlers::login))
-            .route("/logout", web::post().to(handlers::logout)),
-    );
+    Router::new()
+        .route("/signup", post(handlers::signup))
+        .route("/login", post(handlers::login))
+        .route("/logout", post(handlers::logout))
 }

@@ -1,4 +1,6 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use axum::extract::State;
+use axum::http::{HeaderMap, StatusCode};
+use axum::Json;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
@@ -19,7 +21,7 @@ pub struct LoginRequest {
 }
 
 #[derive(Serialize)]
-struct AuthResponse {
+pub(super) struct AuthResponse {
     token: String,
 }
 
@@ -29,8 +31,8 @@ struct UserCredentials {
     password_hash: String,
 }
 
-pub async fn signup(pool: web::Data<PgPool>, payload: web::Json<SignupRequest>) 
-    -> Result<HttpResponse, ApiError> 
+pub async fn signup(State(pool): State<PgPool>, Json(payload): Json<SignupRequest>)
+    -> Result<(StatusCode, Json<AuthResponse>), ApiError>
 {
     if payload.username.trim().is_empty() || payload.email.trim().is_empty() {
         return Err(ApiError::BadRequest(
@@ -51,7 +53,7 @@ pub async fn signup(pool: web::Data<PgPool>, payload: web::Json<SignupRequest>)
     .bind(&payload.username)
     .bind(&payload.email)
     .bind(&password_hash)
-    .fetch_one(pool.get_ref())
+    .fetch_one(&pool)
     .await
     .map_err(|err| match &err {
         sqlx::Error::Database(db_err) if db_err.is_unique_violation() => {
@@ -60,21 +62,21 @@ pub async fn signup(pool: web::Data<PgPool>, payload: web::Json<SignupRequest>)
         _ => ApiError::Internal,
     })?;
 
-    let token = session::create_session(pool.get_ref(), row.0)
+    let token = session::create_session(&pool, row.0)
         .await
         .map_err(|_| ApiError::Internal)?;
 
-    Ok(HttpResponse::Created().json(AuthResponse { token }))
+    Ok((StatusCode::CREATED, Json(AuthResponse { token })))
 }
 
-pub async fn login(pool: web::Data<PgPool>, payload: web::Json<LoginRequest>) 
-    -> Result<HttpResponse, ApiError> 
+pub async fn login(State(pool): State<PgPool>, Json(payload): Json<LoginRequest>)
+    -> Result<Json<AuthResponse>, ApiError>
 {
     let user: UserCredentials = sqlx::query_as(
         "SELECT id, password_hash FROM users WHERE email = $1",
     )
     .bind(&payload.email)
-    .fetch_optional(pool.get_ref())
+    .fetch_optional(&pool)
     .await
     .map_err(|_| ApiError::Internal)?
     .ok_or(ApiError::Unauthorized)?;
@@ -85,29 +87,29 @@ pub async fn login(pool: web::Data<PgPool>, payload: web::Json<LoginRequest>)
         return Err(ApiError::Unauthorized);
     }
 
-    let token = session::create_session(pool.get_ref(), user.id)
+    let token = session::create_session(&pool, user.id)
         .await
         .map_err(|_| ApiError::Internal)?;
 
-    Ok(HttpResponse::Ok().json(AuthResponse { token }))
+    Ok(Json(AuthResponse { token }))
 }
 
-pub async fn logout(pool: web::Data<PgPool>, req: HttpRequest) 
-    -> Result<HttpResponse, ApiError> 
+pub async fn logout(State(pool): State<PgPool>, headers: HeaderMap)
+    -> Result<StatusCode, ApiError>
 {
-    let token = extract_bearer_token(&req).ok_or(ApiError::Unauthorized)?;
+    let token = extract_bearer_token(&headers).ok_or(ApiError::Unauthorized)?;
 
-    session::delete_session(pool.get_ref(), token)
+    session::delete_session(&pool, token)
         .await
         .map_err(|_| ApiError::Internal)?;
 
-    Ok(HttpResponse::NoContent().finish())
+    Ok(StatusCode::NO_CONTENT)
 }
 
-fn extract_bearer_token(req: &HttpRequest) 
-    -> Option<&str> 
+fn extract_bearer_token(headers: &HeaderMap)
+    -> Option<&str>
 {
-    req.headers()
+    headers
         .get("Authorization")?
         .to_str()
         .ok()?

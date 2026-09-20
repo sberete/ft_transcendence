@@ -1,7 +1,7 @@
-use actix_web::http::StatusCode;
-use actix_web::{HttpResponse, ResponseError};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::Json;
 use serde::Serialize;
-use std::fmt;
 
 #[derive(Debug)]
 pub enum ApiError {
@@ -16,20 +16,7 @@ struct ErrorBody {
     error: String,
 }
 
-impl fmt::Display for ApiError {
-    fn fmt(&self, f: &mut fmt::Formatter)
-        -> fmt::Result
-    {
-        match self {
-            ApiError::BadRequest(msg) => write!(f, "{msg}"),
-            ApiError::Unauthorized => write!(f, "unauthorized"),
-            ApiError::Conflict(msg) => write!(f, "{msg}"),
-            ApiError::Internal => write!(f, "internal server error"),
-        }
-    }
-}
-
-impl ResponseError for ApiError {
+impl ApiError {
     fn status_code(&self)
         -> StatusCode
     {
@@ -41,11 +28,23 @@ impl ResponseError for ApiError {
         }
     }
 
-    fn error_response(&self)
-        -> HttpResponse
+    fn message(&self)
+        -> String
     {
-        HttpResponse::build(self.status_code()).json(ErrorBody {
-            error: self.to_string(),
-        })
+        match self {
+            ApiError::BadRequest(msg) => msg.clone(),
+            ApiError::Unauthorized => "unauthorized".to_string(),
+            ApiError::Conflict(msg) => msg.clone(),
+            ApiError::Internal => "internal server error".to_string(),
+        }
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self)
+        -> Response
+    {
+        let status = self.status_code();
+        (status, Json(ErrorBody { error: self.message() })).into_response()
     }
 }

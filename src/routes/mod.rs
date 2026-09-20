@@ -1,8 +1,10 @@
-use actix_web::web;
+use axum::Router;
+use sqlx::PgPool;
 
 // Chaque phase ajoute son propre sous-module ici (auth, users, friends, ws, media...)
-// et l'enregistre dans configure().
-pub fn configure(cfg: &mut web::ServiceConfig)
+// et le nest() ici.
+pub fn router()
+    -> Router<PgPool>
 {
-    cfg.configure(crate::auth::configure);
+    Router::new().nest("/auth", crate::auth::router())
 }

@@ -1,11 +1,11 @@
 // ROADMAP — prochaines etapes du backend (voir idea.txt / roadmap.txt)
 //
 // Phase 1 — Fondations (en cours)
-//   [x] Serveur Actix-web + pool Postgres
+//   [x] Serveur Axum + pool Postgres (switch depuis Actix-web)
 //   [x] Structure modulaire (config, db, routes, server)
 //   [x] Migrations SQL (table users, sessions, friends, rooms, messages, videos)
 //   [x] mod auth : signup/login/logout, hash+salt (argon2), sessions en DB
-//   [x] mod errors : enum ApiError + impl ResponseError (reponses d'erreur propres)
+//   [x] mod errors : enum ApiError + impl IntoResponse (reponses d'erreur propres)
 //   [ ] Definir le contrat d'API (routes REST + evenements WebSocket) pour le(s) frontend(s)
 //
 // Phase 2 — Utilisateurs & social
@@ -26,7 +26,7 @@
 // Phase 5 — Durcissement
 //   [ ] Module de securite restant (2FA ou remplacant), ORM finalise
 //   [ ] HTTPS, Privacy Policy / ToS, nettoyage warnings
-//   [ ] Restreindre le CORS aux origines connues (actuellement Cors::permissive())
+//   [ ] Restreindre le CORS aux origines connues (actuellement allow_origin(Any))
 //   [ ] Tests multi-users concurrents, README complet
 
 mod auth;
@@ -36,7 +36,7 @@ mod errors;
 mod routes;
 mod server;
 
-#[actix_web::main]
+#[tokio::main]
 async fn main()
     -> std::io::Result<()>
 {

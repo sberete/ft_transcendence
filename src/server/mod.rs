@@ -1,5 +1,5 @@
-use actix_cors::Cors;
-use actix_web::{web, App, HttpServer};
+use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::config::Config;
 use crate::db;
@@ -20,15 +20,17 @@ pub async fn run()
 
     log::info!("Starting server on 0.0.0.0:{}", config.port);
 
-    let port = config.port;
-    HttpServer::new(move || {
-        // TODO Phase 5 : restreindre aux origines connues (plus de permissive() en prod)
-        App::new()
-            .wrap(Cors::permissive())
-            .app_data(web::Data::new(pool.clone()))
-            .configure(routes::configure)
-    })
-    .bind(("0.0.0.0", port))?
-    .run()
-    .await
+    // Le joker "*" ne couvre pas Authorization : il faut le lister explicitement.
+    // TODO Phase 5 : restreindre allow_origin aux origines connues
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
+
+    let app = routes::router()
+        .layer(cors)
+        .with_state(pool);
+
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", config.port)).await?;
+    axum::serve(listener, app).await
 }
