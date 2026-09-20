@@ -4,8 +4,8 @@
 //   [x] Serveur Actix-web + pool Postgres
 //   [x] Structure modulaire (config, db, routes, server)
 //   [x] Migrations SQL (table users, sessions, friends, rooms, messages, videos)
-//   [ ] mod auth : signup/login, hash+salt (argon2), sessions/JWT
-//   [ ] mod errors : enum ApiError + impl ResponseError (reponses d'erreur propres)
+//   [x] mod auth : signup/login/logout, hash+salt (argon2), sessions en DB
+//   [x] mod errors : enum ApiError + impl ResponseError (reponses d'erreur propres)
 //   [ ] Definir le contrat d'API (routes REST + evenements WebSocket) pour le(s) frontend(s)
 //
 // Phase 2 — Utilisateurs & social
@@ -29,8 +29,10 @@
 //   [ ] Restreindre le CORS aux origines connues (actuellement Cors::permissive())
 //   [ ] Tests multi-users concurrents, README complet
 
+mod auth;
 mod config;
 mod db;
+mod errors;
 mod routes;
 mod server;
 
