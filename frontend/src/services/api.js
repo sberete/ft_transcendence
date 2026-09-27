@@ -1,10 +1,12 @@
-const BASE_URL = 'http://localhost:3000'
+export const BASE_URL = 'http://localhost:3000'
 
 async function request(path, options = {}) {
+  const isFormData = options.body instanceof FormData
+
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
   })
@@ -37,5 +39,30 @@ export function logout(token) {
   return request('/auth/logout', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function getMe(token) {
+  return request('/users/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function updateMe(token, username) {
+  return request('/users/me', {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ username }),
+  })
+}
+
+export function uploadAvatar(token, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return request('/users/me/avatar', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
   })
 }
