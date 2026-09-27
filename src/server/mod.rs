@@ -1,5 +1,6 @@
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 
 use crate::config::Config;
 use crate::db;
@@ -28,6 +29,7 @@ pub async fn run()
         .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
     let app = routes::router()
+        .nest_service("/uploads", ServeDir::new("uploads"))
         .layer(cors)
         .with_state(pool);
 

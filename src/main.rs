@@ -9,7 +9,7 @@
 //   [ ] Definir le contrat d'API (routes REST + evenements WebSocket) pour le(s) frontend(s)
 //
 // Phase 2 — Utilisateurs & social
-//   [ ] mod users : CRUD profil, upload avatar
+//   [x] mod users : GET/PATCH profil, upload avatar (extracteur AuthUser reutilisable)
 //   [ ] mod friends : ajout/suppression, statut en ligne
 //   [ ] OAuth (Google/GitHub)
 //
@@ -35,6 +35,7 @@ mod db;
 mod errors;
 mod routes;
 mod server;
+mod users;
 
 #[tokio::main]
 async fn main()

@@ -34,6 +34,19 @@ pub async fn delete_session(pool: &PgPool, token: &str)
     Ok(())
 }
 
+pub async fn validate_session(pool: &PgPool, token: &str)
+    -> Result<Option<i64>, sqlx::Error>
+{
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT user_id FROM sessions WHERE token_hash = $1 AND expires_at > now()",
+    )
+    .bind(hash_token(token))
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|r| r.0))
+}
+
 fn hash_token(token: &str)
     -> String
 {
