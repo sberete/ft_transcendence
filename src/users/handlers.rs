@@ -107,8 +107,7 @@ async fn fetch_profile(pool: &PgPool, user_id: i64)
         .map_err(|_| ApiError::Internal)
 }
 
-fn random_filename_stem()
-    -> String
+fn random_filename_stem() -> String
 {
     let mut raw = [0u8; 16];
     rand::thread_rng().fill_bytes(&mut raw);

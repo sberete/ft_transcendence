@@ -10,7 +10,7 @@
 //
 // Phase 2 — Utilisateurs & social
 //   [x] mod users : GET/PATCH profil, upload avatar (extracteur AuthUser reutilisable)
-//   [ ] mod friends : ajout/suppression, statut en ligne
+//   [x] mod friends : ajout/suppression (symetrique), statut en ligne (last_seen_at)
 //   [ ] OAuth (Google/GitHub)
 //
 // Phase 3 — Coeur temps reel (cf. day07 de la piscine Rust)
@@ -33,13 +33,13 @@ mod auth;
 mod config;
 mod db;
 mod errors;
+mod friends;
 mod routes;
 mod server;
 mod users;
 
 #[tokio::main]
-async fn main()
-    -> std::io::Result<()>
+async fn main() -> std::io::Result<()>
 {
     server::run().await
 }
