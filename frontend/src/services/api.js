@@ -28,10 +28,10 @@ export function signup(username, email, password) {
   })
 }
 
-export function login(email, password) {
+export function login(identifier, password) {
   return request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier, password }),
   })
 }
 
@@ -73,11 +73,24 @@ export function listFriends(token) {
   })
 }
 
-export function addFriend(token, username) {
+export function sendFriendRequest(token, username) {
   return request('/friends', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ username }),
+  })
+}
+
+export function listFriendRequests(token) {
+  return request('/friends/requests', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function acceptFriendRequest(token, fromUserId) {
+  return request(`/friends/requests/${fromUserId}/accept`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
   })
 }
 

@@ -16,7 +16,7 @@ pub struct SignupRequest {
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
-    email: String,
+    identifier: String,
     password: String,
 }
 
@@ -73,9 +73,9 @@ pub async fn login(State(pool): State<PgPool>, Json(payload): Json<LoginRequest>
     -> Result<Json<AuthResponse>, ApiError>
 {
     let user: UserCredentials = sqlx::query_as(
-        "SELECT id, password_hash FROM users WHERE email = $1",
+        "SELECT id, password_hash FROM users WHERE email = $1 OR username = $1",
     )
-    .bind(&payload.email)
+    .bind(&payload.identifier)
     .fetch_optional(&pool)
     .await
     .map_err(|_| ApiError::Internal)?

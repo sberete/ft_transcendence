@@ -1,15 +1,24 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { BASE_URL, listFriends, addFriend, removeFriend } from '../services/api'
+import {
+  BASE_URL,
+  listFriends,
+  listFriendRequests,
+  sendFriendRequest,
+  acceptFriendRequest,
+  removeFriend,
+} from '../services/api'
 import { useAuth } from '../services/auth'
 
 const router = useRouter()
 const { token, clearToken } = useAuth()
 
 const friends = ref([])
+const requests = ref([])
 const newUsername = ref('')
 const error = ref('')
+const success = ref('')
 const loading = ref(true)
 
 onMounted(async () => {
@@ -17,12 +26,13 @@ onMounted(async () => {
     router.push('/login')
     return
   }
-  await loadFriends()
+  await loadAll()
 })
 
-async function loadFriends() {
+async function loadAll() {
   try {
     friends.value = await listFriends(token.value)
+    requests.value = await listFriendRequests(token.value)
     loading.value = false
   } catch {
     clearToken()
@@ -30,12 +40,32 @@ async function loadFriends() {
   }
 }
 
-async function handleAddFriend() {
+async function handleSendRequest() {
+  error.value = ''
+  success.value = ''
+  try {
+    await sendFriendRequest(token.value, newUsername.value)
+    success.value = 'Demande envoyée.'
+    newUsername.value = ''
+  } catch (err) {
+    error.value = err.message
+  }
+}
+
+async function handleAccept(fromUserId) {
   error.value = ''
   try {
-    await addFriend(token.value, newUsername.value)
-    newUsername.value = ''
-    await loadFriends()
+    await acceptFriendRequest(token.value, fromUserId)
+    await loadAll()
+  } catch (err) {
+    error.value = err.message
+  }
+}
+
+async function handleDecline(fromUserId) {
+  try {
+    await removeFriend(token.value, fromUserId)
+    await loadAll()
   } catch (err) {
     error.value = err.message
   }
@@ -44,10 +74,14 @@ async function handleAddFriend() {
 async function handleRemoveFriend(friendId) {
   try {
     await removeFriend(token.value, friendId)
-    await loadFriends()
+    await loadAll()
   } catch (err) {
     error.value = err.message
   }
+}
+
+function avatarSrc(url) {
+  return url ? `${BASE_URL}${url}` : '/default-avatar.svg'
 }
 </script>
 
@@ -55,28 +89,43 @@ async function handleRemoveFriend(friendId) {
   <main>
     <h1>Mes amis</h1>
 
-    <form @submit.prevent="handleAddFriend">
+    <form @submit.prevent="handleSendRequest">
       <input v-model="newUsername" type="text" placeholder="Nom d'utilisateur" required />
-      <button type="submit">Ajouter</button>
+      <button type="submit">Envoyer une demande</button>
     </form>
     <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="success" class="success">{{ success }}</p>
 
     <p v-if="loading">Chargement...</p>
-    <p v-else-if="friends.length === 0" class="empty">Aucun ami pour l'instant.</p>
-    <ul v-else class="friend-list">
-      <li v-for="friend in friends" :key="friend.id">
-        <img
-          :src="friend.avatar_url ? `${BASE_URL}${friend.avatar_url}` : '/default-avatar.svg'"
-          alt="Avatar"
-          class="avatar"
-        />
-        <span class="name">{{ friend.username }}</span>
-        <span class="status" :class="{ online: friend.online }">
-          {{ friend.online ? 'En ligne' : 'Hors ligne' }}
-        </span>
-        <button class="remove" @click="handleRemoveFriend(friend.id)">Retirer</button>
-      </li>
-    </ul>
+
+    <template v-else>
+      <section v-if="requests.length > 0">
+        <h2>Demandes reçues</h2>
+        <ul class="friend-list">
+          <li v-for="req in requests" :key="req.id">
+            <img :src="avatarSrc(req.avatar_url)" alt="Avatar" class="avatar" />
+            <span class="name">{{ req.username }}</span>
+            <button @click="handleAccept(req.id)">Accepter</button>
+            <button class="remove" @click="handleDecline(req.id)">Refuser</button>
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Mes amis</h2>
+        <p v-if="friends.length === 0" class="empty">Aucun ami pour l'instant.</p>
+        <ul v-else class="friend-list">
+          <li v-for="friend in friends" :key="friend.id">
+            <img :src="avatarSrc(friend.avatar_url)" alt="Avatar" class="avatar" />
+            <span class="name">{{ friend.username }}</span>
+            <span class="status" :class="{ online: friend.online }">
+              {{ friend.online ? 'En ligne' : 'Hors ligne' }}
+            </span>
+            <button class="remove" @click="handleRemoveFriend(friend.id)">Retirer</button>
+          </li>
+        </ul>
+      </section>
+    </template>
 
     <p><router-link to="/">Retour à l'accueil</router-link></p>
   </main>
@@ -88,6 +137,11 @@ main {
   max-width: 360px;
   margin: 4rem auto;
   text-align: center;
+}
+h2 {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.5rem;
+  text-align: left;
 }
 form {
   display: flex;
@@ -101,14 +155,18 @@ input {
 }
 button {
   padding: 0.5rem 0.75rem;
-  font-size: 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 .error {
   color: #c00;
 }
+.success {
+  color: #080;
+}
 .empty {
   color: #888;
+  text-align: left;
 }
 .friend-list {
   list-style: none;
@@ -139,9 +197,5 @@ button {
 }
 .status.online {
   color: #080;
-}
-.remove {
-  font-size: 0.8rem;
-  padding: 0.25rem 0.5rem;
 }
 </style>

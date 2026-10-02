@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { login } from '../services/api'
 import { useAuth } from '../services/auth'
 
-const email = ref('')
+const identifier = ref('')
 const password = ref('')
 const error = ref('')
 const router = useRouter()
@@ -13,7 +13,7 @@ const { setToken } = useAuth()
 async function handleSubmit() {
   error.value = ''
   try {
-    const data = await login(email.value, password.value)
+    const data = await login(identifier.value, password.value)
     setToken(data.token)
     router.push('/')
   } catch (err) {
@@ -26,7 +26,7 @@ async function handleSubmit() {
   <main>
     <h1>Connexion</h1>
     <form @submit.prevent="handleSubmit">
-      <input v-model="email" type="email" placeholder="Email" required />
+      <input v-model="identifier" type="text" placeholder="Email ou nom d'utilisateur" required />
       <input v-model="password" type="password" placeholder="Mot de passe" required />
       <button type="submit">Se connecter</button>
     </form>
