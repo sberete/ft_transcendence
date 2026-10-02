@@ -23,6 +23,7 @@ async function handleLogout() {
     <div v-if="token">
       <p>Connecté.</p>
       <p><router-link to="/profile">Mon profil</router-link></p>
+      <p><router-link to="/friends">Mes amis</router-link></p>
       <button @click="handleLogout">Se déconnecter</button>
     </div>
     <div v-else>

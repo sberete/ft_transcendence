@@ -66,3 +66,24 @@ export function uploadAvatar(token, file) {
     body: formData,
   })
 }
+
+export function listFriends(token) {
+  return request('/friends', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function addFriend(token, username) {
+  return request('/friends', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ username }),
+  })
+}
+
+export function removeFriend(token, friendId) {
+  return request(`/friends/${friendId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}

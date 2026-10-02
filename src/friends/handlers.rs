@@ -11,7 +11,7 @@ const ONLINE_THRESHOLD_SECONDS: &str = "60 seconds";
 
 #[derive(Deserialize)]
 pub struct AddFriendRequest {
-    friend_id: i64,
+    username: String,
 }
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -44,25 +44,23 @@ pub async fn list_friends(auth: AuthUser, State(pool): State<PgPool>)
 pub async fn add_friend(auth: AuthUser, State(pool): State<PgPool>, Json(payload): Json<AddFriendRequest>)
     -> Result<Json<FriendView>, ApiError>
 {
-    if payload.friend_id == auth.user_id {
-        return Err(ApiError::BadRequest("cannot add yourself as a friend".into()));
-    }
-
-    let exists: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE id = $1")
-        .bind(payload.friend_id)
+    let target: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE username = $1")
+        .bind(&payload.username)
         .fetch_optional(&pool)
         .await
         .map_err(|_| ApiError::Internal)?;
 
-    if exists.is_none() {
-        return Err(ApiError::NotFound("user not found".into()));
+    let friend_id = target.ok_or_else(|| ApiError::NotFound("user not found".into()))?.0;
+
+    if friend_id == auth.user_id {
+        return Err(ApiError::BadRequest("cannot add yourself as a friend".into()));
     }
 
     let insert = sqlx::query(
         "INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted'), ($2, $1, 'accepted')",
     )
     .bind(auth.user_id)
-    .bind(payload.friend_id)
+    .bind(friend_id)
     .execute(&pool)
     .await;
 
@@ -74,7 +72,7 @@ pub async fn add_friend(auth: AuthUser, State(pool): State<PgPool>, Json(payload
         Err(_) => return Err(ApiError::Internal),
     }
 
-    fetch_friend_view(&pool, payload.friend_id).await
+    fetch_friend_view(&pool, friend_id).await
 }
 
 pub async fn remove_friend(auth: AuthUser, State(pool): State<PgPool>, Path(friend_id): Path<i64>)
