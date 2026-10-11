@@ -8,4 +8,5 @@ pub fn router() -> Router<PgPool> {
         .nest("/auth", crate::auth::router())
         .nest("/users", crate::users::router())
         .nest("/friends", crate::friends::router())
+        .nest("/media", crate::media::router())
 }

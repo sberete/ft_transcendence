@@ -1,58 +1,60 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import AuthCard from '../components/AuthCard.vue'
+import OAuthButtons from '../components/OAuthButtons.vue'
 import { login } from '../services/api'
 import { useAuth } from '../services/auth'
+import { OAUTH_ERRORS, oauthErrorCode } from '../services/oauth'
+
+const route = useRoute()
+const router = useRouter()
 
 const identifier = ref('')
 const password = ref('')
-const error = ref('')
-const router = useRouter()
+// ?error=... : connexion Google/GitHub echouee en pleine page (popup bloquee).
+const error = ref(route.query.error ? OAUTH_ERRORS[oauthErrorCode(route.query.error)] : '')
+const submitting = ref(false)
 const { setToken } = useAuth()
+
+// ?redirect= vient de l'URL, donc de n'importe qui : on n'accepte qu'un chemin
+// interne ("/watch/..."), jamais "//evil.com" ou "https://..." (open redirect).
+function safeRedirect(value) {
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
+}
 
 async function handleSubmit() {
   error.value = ''
+  submitting.value = true
   try {
     const data = await login(identifier.value, password.value)
     setToken(data.token)
-    router.push('/')
+    router.push(safeRedirect(route.query.redirect))
   } catch (err) {
     error.value = err.message
+  } finally {
+    submitting.value = false
   }
 }
 </script>
 
 <template>
-  <main>
-    <h1>Connexion</h1>
+  <AuthCard title="Connexion" subtitle="Content de vous revoir.">
     <form @submit.prevent="handleSubmit">
-      <input v-model="identifier" type="text" placeholder="Email ou nom d'utilisateur" required />
-      <input v-model="password" type="password" placeholder="Mot de passe" required />
-      <button type="submit">Se connecter</button>
+      <label class="field">
+        Email ou nom d'utilisateur
+        <input v-model="identifier" class="input" type="text" autocomplete="username" required />
+      </label>
+      <label class="field">
+        Mot de passe
+        <input v-model="password" class="input" type="password" autocomplete="current-password" required />
+      </label>
+      <p v-if="error" class="msg-error">{{ error }}</p>
+      <button type="submit" class="btn btn-primary btn-lg" :disabled="submitting">
+        {{ submitting ? 'Connexion...' : 'Se connecter' }}
+      </button>
     </form>
-    <p v-if="error" class="error">{{ error }}</p>
-    <p><router-link to="/signup">Pas de compte ? S'inscrire</router-link></p>
-  </main>
+    <OAuthButtons />
+    <p class="switch muted">Pas de compte ? <router-link to="/signup">S'inscrire</router-link></p>
+  </AuthCard>
 </template>
-
-<style scoped>
-main {
-  font-family: sans-serif;
-  max-width: 320px;
-  margin: 4rem auto;
-  text-align: center;
-}
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-input,
-button {
-  padding: 0.5rem;
-  font-size: 1rem;
-}
-.error {
-  color: #c00;
-}
-</style>

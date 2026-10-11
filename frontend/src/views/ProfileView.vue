@@ -3,9 +3,12 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { BASE_URL, getMe, updateMe, uploadAvatar } from '../services/api'
 import { useAuth } from '../services/auth'
+import { useCurrentUser } from '../services/currentUser'
+import { avatarSrc } from '../services/format'
 
 const router = useRouter()
 const { token, clearToken } = useAuth()
+const { setUser } = useCurrentUser()
 
 const profile = ref(null)
 const username = ref('')
@@ -13,13 +16,7 @@ const error = ref('')
 const success = ref('')
 const uploading = ref(false)
 
-onMounted(async () => {
-  if (!token.value) {
-    router.push('/login')
-    return
-  }
-  await loadProfile()
-})
+onMounted(loadProfile)
 
 async function loadProfile() {
   try {
@@ -31,11 +28,17 @@ async function loadProfile() {
   }
 }
 
+// Met a jour la page ET le header (avatar, pseudo dans le menu).
+function applyProfile(value) {
+  profile.value = value
+  setUser(value)
+}
+
 async function handleUpdateUsername() {
   error.value = ''
   success.value = ''
   try {
-    profile.value = await updateMe(token.value, username.value)
+    applyProfile(await updateMe(token.value, username.value))
     success.value = 'Profil mis à jour.'
   } catch (err) {
     error.value = err.message
@@ -50,7 +53,7 @@ async function handleAvatarChange(event) {
   success.value = ''
   uploading.value = true
   try {
-    profile.value = await uploadAvatar(token.value, file)
+    applyProfile(await uploadAvatar(token.value, file))
     success.value = 'Avatar mis à jour.'
   } catch (err) {
     error.value = err.message
@@ -61,80 +64,77 @@ async function handleAvatarChange(event) {
 </script>
 
 <template>
-  <main v-if="profile">
-    <h1>Mon profil</h1>
+  <main class="page">
+    <div class="container">
+      <h1>Mon profil</h1>
 
-    <img
-      :src="profile.avatar_url ? `${BASE_URL}${profile.avatar_url}` : '/default-avatar.svg'"
-      alt="Avatar"
-      class="avatar"
-    />
-    <label class="avatar-upload">
-      {{ uploading ? 'Envoi...' : "Changer d'avatar" }}
-      <input type="file" accept="image/png,image/jpeg,image/webp" @change="handleAvatarChange" hidden />
-    </label>
+      <div v-if="profile" class="panel profile">
+        <div class="avatar-col">
+          <img :src="avatarSrc(BASE_URL, profile.avatar_url)" alt="Avatar" class="avatar" />
+          <label class="btn btn-ghost btn-sm">
+            {{ uploading ? 'Envoi...' : "Changer d'avatar" }}
+            <input type="file" accept="image/png,image/jpeg,image/webp" hidden @change="handleAvatarChange" />
+          </label>
+        </div>
 
-    <form @submit.prevent="handleUpdateUsername">
-      <label>
-        Nom d'utilisateur
-        <input v-model="username" type="text" required />
-      </label>
-      <label>
-        Email
-        <input :value="profile.email" type="email" disabled />
-      </label>
-      <button type="submit">Enregistrer</button>
-    </form>
+        <form class="fields" @submit.prevent="handleUpdateUsername">
+          <label class="field">
+            Nom d'utilisateur
+            <input v-model="username" class="input" type="text" maxlength="32" required />
+          </label>
+          <label class="field">
+            Email
+            <input :value="profile.email" class="input" type="email" disabled />
+          </label>
+          <p v-if="error" class="msg-error">{{ error }}</p>
+          <p v-if="success" class="msg-success">{{ success }}</p>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </form>
+      </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="success" class="success">{{ success }}</p>
-
-    <p><router-link to="/">Retour à l'accueil</router-link></p>
+      <div v-else class="panel skeleton" style="height: 240px"></div>
+    </div>
   </main>
 </template>
 
 <style scoped>
-main {
-  font-family: sans-serif;
-  max-width: 320px;
-  margin: 4rem auto;
-  text-align: center;
+.container {
+  max-width: 720px;
+  margin: 0 auto;
 }
+
+.profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.avatar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .avatar {
-  width: 96px;
-  height: 96px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   object-fit: cover;
-  background: #eee;
+  background: var(--bg-hover);
+  border: 3px solid var(--border);
 }
-.avatar-upload {
-  display: block;
-  margin: 0.5rem 0 1.5rem;
-  color: #06c;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-form {
+
+.fields {
+  flex: 1;
+  min-width: 240px;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  text-align: left;
+  gap: 1rem;
 }
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-input,
-button {
-  padding: 0.5rem;
-  font-size: 1rem;
-}
-.error {
-  color: #c00;
-}
-.success {
-  color: #080;
+
+.fields .btn {
+  align-self: flex-start;
 }
 </style>

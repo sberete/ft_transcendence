@@ -28,7 +28,8 @@ pub(super) struct AuthResponse {
 #[derive(sqlx::FromRow)]
 struct UserCredentials {
     id: i64,
-    password_hash: String,
+    // None pour un compte cree via Google/GitHub.
+    password_hash: Option<String>,
 }
 
 pub async fn signup(State(pool): State<PgPool>, Json(payload): Json<SignupRequest>)
@@ -81,7 +82,11 @@ pub async fn login(State(pool): State<PgPool>, Json(payload): Json<LoginRequest>
     .map_err(|_| ApiError::Internal)?
     .ok_or(ApiError::Unauthorized)?;
 
-    let valid = password::verify_password(&payload.password, &user.password_hash)
+    // Un compte OAuth n'a pas de mot de passe : meme reponse qu'un mauvais
+    // mot de passe, pour ne pas reveler comment le compte a ete cree.
+    let password_hash = user.password_hash.ok_or(ApiError::Unauthorized)?;
+
+    let valid = password::verify_password(&payload.password, &password_hash)
         .map_err(|_| ApiError::Internal)?;
     if !valid {
         return Err(ApiError::Unauthorized);

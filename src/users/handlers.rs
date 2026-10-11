@@ -28,12 +28,9 @@ pub async fn get_me(auth: AuthUser, State(pool): State<PgPool>)
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
 
-pub async fn update_me(
-    auth: AuthUser,
-    State(pool): State<PgPool>,
-    Json(payload): Json<UpdateProfileRequest>,
-)
-    -> Result<Json<UserProfile>, ApiError>
+pub async fn update_me(auth: AuthUser, State(pool): State<PgPool>, 
+    Json(payload): Json<UpdateProfileRequest>)
+        -> Result<Json<UserProfile>, ApiError>
 {
     if let Some(username) = &payload.username {
         if username.trim().is_empty() {
@@ -56,8 +53,7 @@ pub async fn update_me(
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
 
-pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multipart: Multipart)
-    -> Result<Json<UserProfile>, ApiError>
+pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multipart: Multipart) -> Result<Json<UserProfile>, ApiError>
 {
     let field = multipart
         .next_field()
@@ -97,8 +93,7 @@ pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multi
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
 
-async fn fetch_profile(pool: &PgPool, user_id: i64)
-    -> Result<UserProfile, ApiError>
+async fn fetch_profile(pool: &PgPool, user_id: i64) -> Result<UserProfile, ApiError>
 {
     sqlx::query_as("SELECT id, username, email, avatar_url FROM users WHERE id = $1")
         .bind(user_id)

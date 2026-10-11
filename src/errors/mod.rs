@@ -10,6 +10,8 @@ pub enum ApiError {
     NotFound(String),
     Conflict(String),
     Internal,
+    // Une source externe (Archive, PeerTube...) a echoue : ce n'est pas notre bug.
+    BadGateway(String),
 }
 
 #[derive(Serialize)]
@@ -26,6 +28,7 @@ impl ApiError {
             ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::BadGateway(_) => StatusCode::BAD_GATEWAY,
         }
     }
 
@@ -37,6 +40,7 @@ impl ApiError {
             ApiError::NotFound(msg) => msg.clone(),
             ApiError::Conflict(msg) => msg.clone(),
             ApiError::Internal => "internal server error".to_string(),
+            ApiError::BadGateway(msg) => msg.clone(),
         }
     }
 }

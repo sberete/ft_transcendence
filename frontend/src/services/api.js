@@ -100,3 +100,24 @@ export function removeFriend(token, friendId) {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
+
+export function searchMedia(token, query, provider = null) {
+  const params = new URLSearchParams({ q: query })
+  if (provider) params.set('provider', provider)
+
+  return request(`/media/search?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function getMediaDetails(token, provider, id) {
+  return request(`/media/${provider}/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+// Pas un appel fetch : le navigateur doit reellement naviguer vers cette URL,
+// puisque le backend repond par une redirection vers Google/GitHub.
+export function oauthStartUrl(provider) {
+  return `${BASE_URL}/auth/oauth/${provider}/start`
+}

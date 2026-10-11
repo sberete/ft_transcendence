@@ -1,9 +1,12 @@
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
+use axum::Extension;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 
+use crate::auth::OAuthConfig;
 use crate::config::Config;
 use crate::db;
+use crate::media::MediaClient;
 use crate::routes;
 
 pub async fn run() -> std::io::Result<()>
@@ -29,6 +32,8 @@ pub async fn run() -> std::io::Result<()>
 
     let app = routes::router()
         .nest_service("/uploads", ServeDir::new("uploads"))
+        .layer(Extension(MediaClient::new(&config.peertube_url)))
+        .layer(Extension(OAuthConfig::new(&config)))
         .layer(cors)
         .with_state(pool);
 

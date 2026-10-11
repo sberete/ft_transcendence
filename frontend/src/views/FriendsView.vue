@@ -86,116 +86,146 @@ function avatarSrc(url) {
 </script>
 
 <template>
-  <main>
-    <h1>Mes amis</h1>
+  <main class="page">
+    <div class="container">
+      <h1>Mes amis</h1>
 
-    <form @submit.prevent="handleSendRequest">
-      <input v-model="newUsername" type="text" placeholder="Nom d'utilisateur" required />
-      <button type="submit">Envoyer une demande</button>
-    </form>
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="success" class="success">{{ success }}</p>
+      <form class="panel add" @submit.prevent="handleSendRequest">
+        <label class="field">
+          Ajouter un ami
+          <div class="add-row">
+            <input v-model="newUsername" class="input" type="text" placeholder="Nom d'utilisateur" required />
+            <button type="submit" class="btn btn-primary">Envoyer</button>
+          </div>
+        </label>
+        <p v-if="error" class="msg-error">{{ error }}</p>
+        <p v-if="success" class="msg-success">{{ success }}</p>
+      </form>
 
-    <p v-if="loading">Chargement...</p>
+      <div v-if="loading" class="skeleton" style="height: 160px; margin-top: 2rem"></div>
 
-    <template v-else>
-      <section v-if="requests.length > 0">
-        <h2>Demandes reçues</h2>
-        <ul class="friend-list">
-          <li v-for="req in requests" :key="req.id">
-            <img :src="avatarSrc(req.avatar_url)" alt="Avatar" class="avatar" />
-            <span class="name">{{ req.username }}</span>
-            <button @click="handleAccept(req.id)">Accepter</button>
-            <button class="remove" @click="handleDecline(req.id)">Refuser</button>
-          </li>
-        </ul>
-      </section>
+      <template v-else>
+        <section v-if="requests.length > 0">
+          <h2>Demandes reçues <span class="count">{{ requests.length }}</span></h2>
+          <ul class="list">
+            <li v-for="req in requests" :key="req.id" class="panel person">
+              <img :src="avatarSrc(req.avatar_url)" alt="" class="avatar" />
+              <span class="name">{{ req.username }}</span>
+              <button class="btn btn-primary btn-sm" @click="handleAccept(req.id)">Accepter</button>
+              <button class="btn btn-ghost btn-sm" @click="handleDecline(req.id)">Refuser</button>
+            </li>
+          </ul>
+        </section>
 
-      <section>
-        <h2>Mes amis</h2>
-        <p v-if="friends.length === 0" class="empty">Aucun ami pour l'instant.</p>
-        <ul v-else class="friend-list">
-          <li v-for="friend in friends" :key="friend.id">
-            <img :src="avatarSrc(friend.avatar_url)" alt="Avatar" class="avatar" />
-            <span class="name">{{ friend.username }}</span>
-            <span class="status" :class="{ online: friend.online }">
-              {{ friend.online ? 'En ligne' : 'Hors ligne' }}
-            </span>
-            <button class="remove" @click="handleRemoveFriend(friend.id)">Retirer</button>
-          </li>
-        </ul>
-      </section>
-    </template>
-
-    <p><router-link to="/">Retour à l'accueil</router-link></p>
+        <section>
+          <h2>Amis <span class="count">{{ friends.length }}</span></h2>
+          <p v-if="friends.length === 0" class="muted">Aucun ami pour l'instant. Ajoutez-en un avec son nom d'utilisateur.</p>
+          <ul v-else class="list">
+            <li v-for="friend in friends" :key="friend.id" class="panel person">
+              <div class="avatar-wrap">
+                <img :src="avatarSrc(friend.avatar_url)" alt="" class="avatar" />
+                <span class="dot" :class="{ online: friend.online }"></span>
+              </div>
+              <div class="name">
+                {{ friend.username }}
+                <span class="status">{{ friend.online ? 'En ligne' : 'Hors ligne' }}</span>
+              </div>
+              <button class="btn btn-danger btn-sm" @click="handleRemoveFriend(friend.id)">Retirer</button>
+            </li>
+          </ul>
+        </section>
+      </template>
+    </div>
   </main>
 </template>
 
 <style scoped>
-main {
-  font-family: sans-serif;
-  max-width: 360px;
-  margin: 4rem auto;
-  text-align: center;
+.container {
+  max-width: 720px;
+  margin: 0 auto;
 }
-h2 {
-  font-size: 1rem;
-  margin: 1.5rem 0 0.5rem;
-  text-align: left;
+
+.add {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
-form {
+
+.add-row {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
 }
-input {
-  flex: 1;
-  padding: 0.5rem;
-  font-size: 1rem;
-}
-button {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.error {
-  color: #c00;
-}
-.success {
-  color: #080;
-}
-.empty {
-  color: #888;
-  text-align: left;
-}
-.friend-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  text-align: left;
-}
-.friend-list li {
+
+h2 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #eee;
+  margin: 2rem 0 0.75rem;
 }
+
+.count {
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.avatar-wrap {
+  position: relative;
+}
+
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   object-fit: cover;
-  background: #eee;
+  background: var(--bg-hover);
 }
+
+.dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--bg-elevated);
+  border-radius: 50%;
+  background: #555;
+}
+
+.dot.online {
+  background: var(--success);
+}
+
 .name {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  color: var(--text-h);
 }
+
 .status {
   font-size: 0.8rem;
-  color: #999;
-}
-.status.online {
-  color: #080;
+  font-weight: 400;
+  color: var(--text);
 }
 </style>
