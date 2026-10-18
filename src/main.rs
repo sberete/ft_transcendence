@@ -1,5 +1,3 @@
-
-
 mod auth;
 mod config;
 mod db;

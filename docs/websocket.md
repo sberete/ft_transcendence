@@ -209,18 +209,21 @@ Les codes 4000 à 4999 sont réservés aux applications par la norme WebSocket.
 Après une fermeture autre que `4401`, le client se reconnecte avec un délai
 croissant (1 s, 2 s, 4 s… plafonné à 30 s), renvoie `auth` puis `room.join`.
 
-## 9. Décisions à prendre
+## 9. Décisions prises (2026-10-19)
 
-Ces points changent le comportement visible et sont à trancher avant
-d'implémenter :
-
-1. **Qui contrôle la lecture ?** Proposition : tous les membres peuvent
-   lire, mettre en pause et avancer ; seul le propriétaire peut changer de
-   vidéo. Alternative : propriétaire seul pour tout (plus simple, moins
-   convivial).
-2. **Qui peut rejoindre une salle ?** Proposition : toute personne connectée
-   qui a le lien. Alternative : seulement les amis du propriétaire.
-3. **Que devient une salle vide ?** Proposition : elle reste, avec son
-   historique de chat, jusqu'à suppression par le propriétaire.
-4. **Le chat est-il conservé ?** Proposition : oui, dans la table `messages`.
-   Le contenu est du texte brut, affiché sans jamais l'interpréter comme HTML.
+1. **Qui contrôle la lecture ?** Tous les membres peuvent lire, mettre en
+   pause et avancer. Seul le propriétaire peut changer de vidéo
+   (`playback.set_media` refusé avec `forbidden` si l'appelant n'est pas
+   `owner_id`).
+2. **Qui peut rejoindre une salle ?** Toute personne connectée qui a le
+   lien (`room_id`). Pas de vérification d'amitié.
+3. **Que devient une salle vide ?** **Suppression automatique** dès que le
+   dernier membre quitte ou se déconnecte (différent de la proposition
+   initiale). Le serveur diffuse `room.closed` avant de fermer les
+   connexions restantes, puis supprime la ligne `rooms` (cascade sur
+   `messages` via la contrainte existante). Une salle qui n'a jamais eu de
+   membre connecté (créée puis jamais rejointe) n'est pas concernée tant
+   que personne n'a déclenché `room.join` puis quitté.
+4. **Le chat est-il conservé ?** Oui, dans la table `messages`. Texte brut
+   uniquement, jamais interprété comme HTML (`v-text`/interpolation côté
+   Vue, jamais `v-html`).
