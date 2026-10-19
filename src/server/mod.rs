@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::db;
 use crate::media::MediaClient;
 use crate::routes;
+use crate::ws::RoomRegistry;
 
 pub async fn run() -> std::io::Result<()>
 {
@@ -30,7 +31,10 @@ pub async fn run() -> std::io::Result<()>
         .allow_methods(Any)
         .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
-    let app = routes::router()
+    let rooms = RoomRegistry::new();
+    let frontend_origins = config.frontend_origins();
+
+    let app = routes::router(pool.clone(), rooms, frontend_origins)
         .nest_service("/uploads", ServeDir::new("uploads"))
         .layer(Extension(MediaClient::new(&config.peertube_url)))
         .layer(Extension(OAuthConfig::new(&config)))
