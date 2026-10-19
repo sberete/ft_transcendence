@@ -7,6 +7,7 @@ mod media;
 mod routes;
 mod server;
 mod users;
+mod ws;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()>

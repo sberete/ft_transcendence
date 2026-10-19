@@ -55,6 +55,30 @@ impl Config {
     }
 }
 
+impl Config {
+    // Les origines (schema+hote+port, sans chemin) autorisees a parler au
+    // backend hors REST : redirection OAuth, et verification de l'en-tete
+    // Origin a l'ouverture d'une connexion WebSocket (non soumise au CORS).
+    pub fn frontend_origins(&self)
+        -> Vec<String>
+    {
+        self.frontend_urls
+            .split(',')
+            .map(str::trim)
+            .filter(|url| !url.is_empty())
+            .filter_map(origin_of)
+            .collect()
+    }
+}
+
+fn origin_of(url: &str)
+    -> Option<String>
+{
+    let origin = reqwest::Url::parse(url).ok()?.origin();
+    // Une origine "opaque" (data:, file:...) ne designe aucun site.
+    origin.is_tuple().then(|| origin.ascii_serialization())
+}
+
 // Une variable vide ("GOOGLE_CLIENT_ID=") compte comme absente.
 fn optional_env(name: &str)
     -> Option<String>

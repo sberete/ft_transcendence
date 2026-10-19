@@ -10,6 +10,7 @@ use sqlx::PgPool;
 
 pub use extractor::AuthUser;
 pub use oauth::OAuthConfig;
+pub use session::validate_session;
 
 pub fn router()
     -> Router<PgPool>

@@ -31,6 +31,18 @@ pub fn router()
         .route("/{provider}/{id}", get(handlers::details))
 }
 
+// Meme regle de validation que GET /media/{provider}/{id}, exposee pour
+// d'autres modules (ws: playback.set_media) qui recoivent aussi une
+// paire provider/id venant du client et doivent la verifier avant usage.
+pub fn is_valid_media_ref(provider: ProviderId, id: &str)
+    -> bool
+{
+    match provider {
+        ProviderId::Archive => archive::is_valid_id(id),
+        ProviderId::Peertube => peertube::is_valid_id(id),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderId {
