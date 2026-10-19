@@ -4,6 +4,7 @@ mod db;
 mod errors;
 mod friends;
 mod media;
+mod rooms;
 mod routes;
 mod server;
 mod users;
