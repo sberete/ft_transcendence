@@ -5,9 +5,9 @@ utile pour toi, pour un futur coéquipier qui reprend une branche, et comme
 base pour la section "Resources" du README final (exigée par le sujet).
 
 Chaque lien a été vérifié avant d'être ajouté ici (pas de lien deviné). Pour
-les vidéos YouTube, on donne le nom de la chaîne plutôt qu'une URL précise
-d'une vidéo — une recherche YouTube du nom de la chaîne + le sujet trouve la
-bonne vidéo en un clic, et évite de pointer vers un lien mort.
+une vidéo YouTube précise dont je n'ai pas pu confirmer l'URL exacte, le
+lien pointe vers la chaîne elle-même avec le titre à chercher, plutôt que
+de risquer un lien mort.
 
 ---
 
@@ -20,7 +20,7 @@ bonne vidéo en un clic, et évite de pointer vers un lien mort.
 - **Rust by Example** — https://doc.rust-lang.org/rust-by-example/
   Même matière que le livre, mais par l'exemple de code plutôt que par la
   théorie — complémentaire si tu apprends mieux en lisant du code.
-- **Vidéo : chaîne "Let's Get Rusty"** (YouTube, cherche `@letsgetrusty`)
+- **Chaîne YouTube "Let's Get Rusty"** — https://www.youtube.com/@letsgetrusty
   Playlist qui suit le livre officiel chapitre par chapitre, en vidéo.
   Bon complément si la lecture seule ne suffit pas pour un concept donné
   (l'ownership et les lifetimes, notamment).
@@ -62,13 +62,13 @@ bonne vidéo en un clic, et évite de pointer vers un lien mort.
   comprendre pourquoi on utilise des codes `4400`-`4429` personnalisés
   dans `docs/websocket.md` (la plage 4000-4999 est réservée aux
   applications par la norme).
-- **MDN — WebSocket API (navigateur)** — cherche "MDN WebSocket API"
+- **MDN — WebSocket API (navigateur)** — https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
   Côté client : `new WebSocket(url)`, événements `open`/`message`/`close`,
   utile pour la branche `frontend-chat`/`frontend-sync`.
 
 ## Sécurité web
 
-- **MDN — CORS** — cherche "MDN Cross-Origin Resource Sharing"
+- **MDN — CORS** — https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS
   Explique pourquoi les WebSockets ne passent PAS par le CORS (d'où la
   vérification manuelle de l'en-tête `Origin` dans `src/ws/handler.rs`) et
   pourquoi le joker `*` ne couvre pas `Authorization` (vu plus tôt sur le
@@ -77,17 +77,17 @@ bonne vidéo en un clic, et évite de pointer vers un lien mort.
   Fiches pratiques, notamment *CSRF Prevention* et *XSS Prevention* —
   pertinent pour le `state` anti-CSRF de l'OAuth et pour le choix de ne
   jamais faire `v-html` sur du contenu externe (descriptions Archive.org).
-- **RFC 9106 — Argon2** (algorithme de hash de mot de passe)
-  Cherche "RFC 9106 Argon2" — la référence derrière `argon2` (crate
-  utilisée dans `src/auth/password.rs`).
+- **RFC 9106 — Argon2** — https://www.rfc-editor.org/rfc/rfc9106
+  La référence derrière `argon2` (crate utilisée dans
+  `src/auth/password.rs`).
 
 ## OAuth 2.0 (Google / GitHub)
 
 - **RFC 6749 — The OAuth 2.0 Authorization Framework** — https://www.rfc-editor.org/rfc/rfc6749
   Section 4.1 : le flux "Authorization Code", celui utilisé dans
   `src/auth/oauth/`. Dense mais c'est LA référence normative.
-- **Documentation Google Identity** — cherche "Google Identity OAuth 2.0 web server apps"
-- **Documentation GitHub OAuth Apps** — cherche "GitHub docs OAuth authorizing apps"
+- **Documentation Google Identity (OAuth 2.0, Web Server Apps)** — https://developers.google.com/identity/protocols/oauth2/web-server
+- **Documentation GitHub — Authorizing OAuth Apps** — https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
   Les deux expliquent les spécificités de chaque fournisseur (scopes,
   endpoints, format des réponses) par-dessus le RFC générique.
 
@@ -98,7 +98,7 @@ bonne vidéo en un clic, et évite de pointer vers un lien mort.
   composants — tout le style utilisé dans `frontend/src/`.
 - **Documentation Vite** — https://vite.dev
   Le serveur de dev et le build utilisés (`npm run dev`, `npm run build`).
-- **Documentation Vue Router** — cherche "router.vuejs.org"
+- **Documentation Vue Router** — https://router.vuejs.org/introduction
   Routes, navigation guards (`router.beforeEach`, utilisé dans
   `frontend/src/router/index.js` pour `requiresAuth`/`guestOnly`).
 
@@ -125,10 +125,12 @@ bonne vidéo en un clic, et évite de pointer vers un lien mort.
 - **Référence du fichier Compose** — https://docs.docker.com/reference/compose-file/
   La spec complète (`services`, `volumes`, `healthcheck`, `depends_on`...)
   utilisée dans `docker-compose.yml`.
-- **Vidéo : "Docker Compose will BLOW your MIND!!" — chaîne NetworkChuck**
-  (YouTube, cherche le titre exact) — ~16 minutes, concentré sur Compose
-  spécifiquement plutôt que Docker en général.
-- **Vidéo : chaîne "TechWorld with Nana"** (YouTube, cherche `TechWorld with Nana docker`)
+- **Chaîne YouTube NetworkChuck** — https://www.youtube.com/@NetworkChuck
+  Vidéo à chercher sur la chaîne : *"Docker Compose will BLOW your
+  MIND!!"* (~16 min, n'ai pas pu confirmer l'URL exacte de la vidéo donc
+  je donne la chaîne) — concentré sur Compose spécifiquement plutôt que
+  Docker en général.
+- **Chaîne YouTube TechWorld with Nana** — https://www.youtube.com/@TechWorldwithNana
   Cours plus complet (images, conteneurs, volumes, Compose) si le concept
   général de conteneurisation n'est pas encore clair.
 
