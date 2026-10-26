@@ -30,6 +30,14 @@ const router = createRouter({
       component: () => import('../views/WatchView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/privacy',
+      component: () => import('../views/PrivacyView.vue'),
+    },
+    {
+      path: '/terms',
+      component: () => import('../views/TermsView.vue'),
+    },
     { path: '/media', redirect: '/' },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
