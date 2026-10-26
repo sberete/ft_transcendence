@@ -30,6 +30,16 @@ const router = createRouter({
       component: () => import('../views/WatchView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/rooms',
+      component: () => import('../views/RoomsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/room/:id',
+      component: () => import('../views/RoomView.vue'),
+      meta: { requiresAuth: true },
+    },
     { path: '/media', redirect: '/' },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

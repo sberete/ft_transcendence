@@ -116,6 +116,38 @@ export function getMediaDetails(token, provider, id) {
   })
 }
 
+export function createRoom(token, name) {
+  return request('/rooms', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name }),
+  })
+}
+
+export function getRoom(token, roomId) {
+  return request(`/rooms/${roomId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function deleteRoom(token, roomId) {
+  return request(`/rooms/${roomId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+// Historique uniquement : les nouveaux messages arrivent par WebSocket
+// (evenement chat.message), pas par cette route. Plus recent en premier.
+export function listRoomMessages(token, roomId, before = null, limit = 50) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (before) params.set('before', String(before))
+
+  return request(`/rooms/${roomId}/messages?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
 // Pas un appel fetch : le navigateur doit reellement naviguer vers cette URL,
 // puisque le backend repond par une redirection vers Google/GitHub.
 export function oauthStartUrl(provider) {

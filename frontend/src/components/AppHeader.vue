@@ -71,6 +71,7 @@ async function handleLogout() {
     <nav v-if="token" class="nav">
       <router-link to="/" exact-active-class="active">Accueil</router-link>
       <router-link to="/friends" active-class="active">Amis</router-link>
+      <router-link to="/rooms" active-class="active">Salles</router-link>
     </nav>
 
     <div class="spacer"></div>
