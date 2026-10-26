@@ -1,9 +1,12 @@
-export const BASE_URL = 'http://localhost:3000'
+// Origine publique du site : nginx sert le front ET fait reverse-proxy vers
+// le backend (prefixe /api, voir docker/frontend/nginx.conf). Le navigateur
+// ne parle jamais au backend en direct - HTTPS de bout en bout, meme origine.
+export const BASE_URL = 'https://localhost:8443'
 
 async function request(path, options = {}) {
   const isFormData = options.body instanceof FormData
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${BASE_URL}/api${path}`, {
     ...options,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -119,5 +122,5 @@ export function getMediaDetails(token, provider, id) {
 // Pas un appel fetch : le navigateur doit reellement naviguer vers cette URL,
 // puisque le backend repond par une redirection vers Google/GitHub.
 export function oauthStartUrl(provider) {
-  return `${BASE_URL}/auth/oauth/${provider}/start`
+  return `${BASE_URL}/api/auth/oauth/${provider}/start`
 }
