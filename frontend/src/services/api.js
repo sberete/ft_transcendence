@@ -1,7 +1,7 @@
 // Origine publique du site : nginx sert le front ET fait reverse-proxy vers
 // le backend (prefixe /api, voir docker/frontend/nginx.conf). Le navigateur
 // ne parle jamais au backend en direct - HTTPS de bout en bout, meme origine.
-export const BASE_URL = 'https://localhost:8443'
+export const BASE_URL = 'https://localhost:8080'
 
 async function request(path, options = {}) {
   const isFormData = options.body instanceof FormData

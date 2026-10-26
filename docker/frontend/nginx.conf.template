@@ -1,11 +1,10 @@
-# Toute connexion navigateur doit passer en HTTPS (exigence du sujet) :
-# le port 80 ne fait que rediriger vers le port 443. Port host code en dur
-# (8443, voir docker-compose.yml) : $host ne contient jamais le port cote nginx.
-server {
-    listen 80;
-    return 301 https://$host:8443$request_uri;
-}
-
+# ${BACKEND_UPSTREAM} est substitue au demarrage du conteneur par l'image
+# nginx officielle (envsubst sur les fichiers /etc/nginx/templates/*.template),
+# uniquement pour les noms qui existent reellement comme variables
+# d'environnement : les variables nginx ($host, $uri, $http_upgrade...)
+# n'en font pas partie et restent donc intouchees. Ca permet de pointer
+# nginx soit vers le conteneur backend (make up), soit vers un `cargo run`
+# natif via host.docker.internal (make dev), sans dupliquer ce fichier.
 server {
     listen 443 ssl;
     http2 on;
@@ -16,12 +15,12 @@ server {
     ssl_certificate_key /etc/nginx/certs/syncwatch.key;
 
     # DNS Docker interne, avec une duree de vie courte : par defaut, nginx
-    # resout "backend" une seule fois au demarrage et garde l'IP en cache. Si
-    # le conteneur backend redemarre (il en change), nginx reste bloque sur
+    # resout l'hote une seule fois au demarrage et garde l'IP en cache. Si le
+    # conteneur backend redemarre (il en change), nginx reste bloque sur
     # l'ancienne adresse jusqu'a son propre redemarrage. Passer par une
     # variable force une resolution a chaque requete.
     resolver 127.0.0.11 valid=10s;
-    set $backend_upstream http://backend:3000;
+    set $backend_upstream ${BACKEND_UPSTREAM};
 
     # index.html ne doit jamais etre mis en cache : c'est lui qui reference
     # le nom (hashe) du bundle JS courant. Sans ca, un navigateur peut servir
@@ -73,8 +72,9 @@ server {
         proxy_read_timeout 3600s;
     }
 
-    # Si le backend est injoignable (redemarrage, crash), renvoyer une erreur
-    # rapide plutot que de laisser le navigateur attendre indefiniment.
+    # Si le backend est injoignable (redemarrage, crash, pas encore lance en
+    # dev natif), renvoyer une erreur rapide plutot que de laisser le
+    # navigateur attendre indefiniment.
     proxy_connect_timeout 5s;
 
     location / {
