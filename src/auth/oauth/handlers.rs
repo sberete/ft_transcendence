@@ -249,7 +249,10 @@ fn cookie(config: &OAuthConfig, name: &str, value: &str, max_age: u32)
     -> String
 {
     let secure = if config.backend_url.starts_with("https://") { "; Secure" } else { "" };
-    format!("{name}={value}; Path=/auth/oauth; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
+    // Path=/ (pas /auth/oauth) : le navigateur voit ces routes sous /api/auth/oauth
+    // depuis le passage par nginx (prefixe /api), le cookie doit donc couvrir
+    // large plutot que de dependre d'un prefixe que ce module ne connait pas.
+    format!("{name}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
 }
 
 fn read_cookie(headers: &HeaderMap, name: &str)
