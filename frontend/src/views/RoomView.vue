@@ -239,7 +239,7 @@ function leaveToLobby() {
               @video-ready="onVideoReady"
             />
             <div v-if="sync.needsGesture.value" class="gesture-overlay">
-              <button class="btn btn-primary" @click="sync.resume()">Rejoindre la lecture</button>
+              <button class="btn btn-primary" @click="sync.resume()">Rejoindre la vidéo en cours</button>
             </div>
             <button v-if="isOwner" class="btn btn-ghost btn-sm change-video" @click="pickerOpen = true">
               Changer la vidéo

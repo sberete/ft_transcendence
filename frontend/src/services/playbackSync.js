@@ -12,6 +12,9 @@ const SMALL_DRIFT_S = 0.25
 const LARGE_DRIFT_S = 2
 const RATE_BEHIND = 1.05
 const RATE_AHEAD = 0.95
+// Au-dela de ce retard a l'attache d'une video, on considere qu'on rejoint
+// une lecture deja bien avancee : voir `caughtUp` plus bas.
+const JOIN_THRESHOLD_S = 2
 // Apres une action locale genuine (clic sur play/pause, ou une avance), le
 // serveur met un instant a repondre avec l'etat a jour. Si la correction
 // automatique tombe pile dans cette fenetre, elle lit encore l'ANCIEN etat
@@ -28,16 +31,31 @@ export function createPlaybackSync(socket, videoRef) {
   let bestRtt = Infinity
   let clockOffsetMs = 0
   let pingsSent = 0
-  let suppress = false
+  // Jusqu'a quand ignorer les evenements DOM declenches par NOUS (voir
+  // withSuppression) : un timestamp plutot qu'un booleen, pour que deux
+  // suppressions qui se chevauchent (ex: play() puis seek juste apres,
+  // cas du rattrapage) s'etendent l'une l'autre au lieu de se court-
+  // circuiter si la premiere a une fenetre plus courte que la seconde.
+  let suppressUntil = 0
   let correctionTimer = null
   let pingTimer = null
   let attachedVideo = null
   let lastLocalActionAt = 0
+  // Vrai une fois que CETTE video a ete calee sur la position attendue au
+  // moins une fois. Tant que c'est faux, correctDrift() ne touche a rien :
+  // rejoindre un salon ou la lecture est deja bien avancee demande un geste
+  // explicite (bouton "Rejoindre la video en cours"), jamais une tentative
+  // automatique — c'est ce qui causait des remises a zero visibles par
+  // tout le salon (play() lance depuis la position 0 avant que le seek de
+  // rattrapage n'ait eu le temps de s'appliquer, puis cette position 0
+  // fuitait vers le serveur si la fenetre de suppression expirait trop
+  // tot pendant que le flux bufferisait encore le point d'arrivee).
+  let caughtUp = false
   // Les navigateurs bloquent l'autoplay avec le son tant qu'il n'y a pas eu
   // de vrai clic sur CETTE video precise : un clic ailleurs sur la page
-  // (chat, header...) ne compte pas. Quand la tentative automatique de
-  // video.play() echoue pour cette raison, on le signale pour que l'UI
-  // affiche un bouton "cliquer pour rejoindre la lecture".
+  // (chat, header...) ne compte pas. Ce drapeau couvre aussi bien ce cas
+  // que le rattrapage explicite ci-dessus : dans les deux cas, l'UI doit
+  // afficher un bouton pour que le clic compte comme un geste utilisateur.
   const needsGesture = ref(false)
 
   function serverNow() {
@@ -74,22 +92,27 @@ export function createPlaybackSync(socket, videoRef) {
   // `play()`/`pause()`/l'affectation de `currentTime` declenchent leurs
   // evenements ('play', 'pause', 'seeked') de facon ASYNCHRONE : relever le
   // drapeau tout de suite apres l'appel ne protege rien, l'evenement arrive
-  // apres coup avec `suppress` deja retombe a false. Le correctif applique
+  // apres coup avec la suppression deja retombee. Le correctif applique
   // alors fini par se renvoyer lui-meme au serveur comme une action
   // utilisateur, avec une position legerement differente qui ecrase le bon
   // etat : c'est ce qui rendait la lecture visiblement "jamais synchro".
-  // On garde donc `suppress` leve pendant une fenetre, pas juste le temps
-  // de l'appel.
+  // On garde donc la suppression levee pendant une fenetre, pas juste le
+  // temps de l'appel — et on l'etend au lieu de l'ecraser si un deuxieme
+  // appel chevauche le premier.
   function withSuppression(action, windowMs) {
-    suppress = true
+    suppressUntil = Math.max(suppressUntil, Date.now() + windowMs)
     action()
-    setTimeout(() => { suppress = false }, windowMs)
+  }
+
+  function isSuppressed() {
+    return Date.now() < suppressUntil
   }
 
   function correctDrift() {
     const video = videoRef.value
     const pb = socket.playback.value
     if (!video || !pb || video.readyState === 0) return
+    if (!caughtUp) return
     if (Date.now() - lastLocalActionAt < LOCAL_ACTION_GRACE_MS) return
 
     // L'etat lecture/pause doit matcher le serveur (ex: un autre membre a mis
@@ -123,21 +146,21 @@ export function createPlaybackSync(socket, videoRef) {
 
   // Les trois evenements qu'un changement local (clic sur les controles natifs
   // du <video>) declenche. On les renvoie au serveur, sauf si c'est NOUS qui
-  // venons de modifier la video pour suivre le serveur (suppress) : sinon
+  // venons de modifier la video pour suivre le serveur (isSuppressed) : sinon
   // chaque client relancerait tous les autres en boucle (section 7, "Eviter
   // les boucles").
   function onPlay() {
-    if (suppress) return
+    if (isSuppressed()) return
     lastLocalActionAt = Date.now()
     socket.send('playback.play', { position: videoRef.value.currentTime })
   }
   function onPause() {
-    if (suppress) return
+    if (isSuppressed()) return
     lastLocalActionAt = Date.now()
     socket.send('playback.pause', { position: videoRef.value.currentTime })
   }
   function onSeeked() {
-    if (suppress) return
+    if (isSuppressed()) return
     lastLocalActionAt = Date.now()
     socket.send('playback.seek', { position: videoRef.value.currentTime })
   }
@@ -146,27 +169,41 @@ export function createPlaybackSync(socket, videoRef) {
     if (attachedVideo === video) return
     detach()
     needsGesture.value = false
+    caughtUp = false
     if (!video) return
     video.addEventListener('play', onPlay)
     video.addEventListener('pause', onPause)
     video.addEventListener('seeked', onSeeked)
     attachedVideo = video
+
+    // Si la lecture est deja bien avancee au moment ou on s'attache (on
+    // rejoint un salon en cours de route), ne pas tenter de rattraper tout
+    // seul : demander le clic explicite plutot que de laisser correctDrift()
+    // s'en charger automatiquement toutes les 2s.
+    const expected = expectedPosition()
+    if (expected != null && expected > JOIN_THRESHOLD_S) {
+      needsGesture.value = true
+    } else {
+      caughtUp = true
+    }
   }
 
-  // Appelee depuis un vrai gestionnaire de clic (bouton "rejoindre la
-  // lecture") : ca compte comme une interaction utilisateur directe sur CET
-  // element, ce que l'appel automatique dans correctDrift() n'est pas, donc
-  // le navigateur l'autorise. Se cale d'abord sur la position attendue (le
-  // temps est passe pendant que la lecture etait bloquee), sans renvoyer ca
-  // au serveur comme une nouvelle action : on rattrape, on ne decide rien.
+  // Appelee depuis un vrai gestionnaire de clic (bouton "Rejoindre la video
+  // en cours" / "Rejoindre la lecture") : ca compte comme une interaction
+  // utilisateur directe sur CET element, ce que l'appel automatique dans
+  // correctDrift() n'est pas, donc le navigateur l'autorise. Se cale
+  // d'abord sur la position attendue, PUIS lance la lecture, sans renvoyer
+  // ca au serveur comme une nouvelle action : on rattrape, on ne decide
+  // rien. Une fois ce rattrapage reussi, les corrections automatiques
+  // habituelles (nudge/seek) peuvent reprendre pour ce client.
   function resume() {
     const video = videoRef.value
     if (!video) return
     withSuppression(() => {
       const expected = expectedPosition()
       if (expected != null) video.currentTime = expected
-      video.play().then(() => { needsGesture.value = false }).catch(() => { needsGesture.value = true })
-    }, 500)
+      video.play().then(() => { needsGesture.value = false; caughtUp = true }).catch(() => { needsGesture.value = true })
+    }, 1000)
   }
 
   function detach() {
