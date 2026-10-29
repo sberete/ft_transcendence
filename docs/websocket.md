@@ -29,8 +29,11 @@ actions ponctuelles, pas du temps réel.
 |---|---|---|---|
 | `POST` | `/rooms` | Créer une salle. Corps : `{"name"}` | `201` `Room` |
 | `GET` | `/rooms/{code}` | Lire une salle | `200` `Room` · `404` |
-| `DELETE` | `/rooms/{code}` | Supprimer sa salle | `204` · `403` si pas propriétaire |
 | `GET` | `/rooms/{code}/messages?before={id}&limit=50` | Historique du chat, du plus récent au plus ancien | `200` `[ChatMessage]` |
+
+Pas de route pour supprimer une salle : elle se supprime automatiquement
+dès que le dernier membre quitte (voir section 9, point 3) — rien d'autre
+dans le process n'en a jamais eu besoin.
 
 `{code}` est le code à 6 chiffres renvoyé à la création, pas un id interne —
 c'est la seule façon de désigner une salle depuis l'extérieur du backend.
@@ -40,8 +43,7 @@ c'est la seule façon de désigner une salle depuis l'extérieur du backend.
 { "code": "335551", "name": "Soirée Chaplin", "owner_id": 3, "created_at": "2026-10-10T20:00:00Z" }
 ```
 
-Toutes privées (`Authorization: Bearer`). À ajouter dans `openapi.yaml` au
-moment de l'implémentation.
+Toutes privées (`Authorization: Bearer`).
 
 ## 3. Connexion
 
