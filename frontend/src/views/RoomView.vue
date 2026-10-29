@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { BASE_URL, listRoomMessages } from '../services/api'
+import { BASE_URL, getRoom, listRoomMessages } from '../services/api'
 import { useAuth } from '../services/auth'
 import { useCurrentUser } from '../services/currentUser'
 import { avatarSrc } from '../services/format'
@@ -22,6 +22,8 @@ const history = ref([])
 const newMessage = ref('')
 const chatEl = ref(null)
 const copied = ref(false)
+const checking = ref(true)
+const notFound = ref(false)
 
 const inviteLink = computed(() => `${window.location.origin}/room/${roomCode.value}`)
 
@@ -50,6 +52,19 @@ watch(() => allMessages.value.length, scrollToBottom)
 
 onMounted(async () => {
   if (!user.value) await loadUser()
+
+  // Verifie que la salle existe reellement AVANT d'afficher quoi que ce
+  // soit de la salle : sans ca, une salle inexistante affichait quand meme
+  // tout le cadre (chat, composer...) avec juste un message d'erreur noye
+  // dedans, comme si on avait presque reussi a y entrer.
+  try {
+    await getRoom(token.value, roomCode.value)
+  } catch {
+    notFound.value = true
+    checking.value = false
+    return
+  }
+  checking.value = false
 
   try {
     const recent = await listRoomMessages(token.value, roomCode.value)
@@ -82,25 +97,34 @@ function leaveToLobby() {
 <template>
   <main class="page room">
     <div class="container">
-      <div class="room-head">
-        <div>
-          <h1>{{ room?.name || 'Salle' }}</h1>
-          <p class="muted">
-            <span v-if="!connected">Connexion...</span>
-            <span v-else>{{ members.length }} participant{{ members.length > 1 ? 's' : '' }} · code {{ roomCode }}</span>
-          </p>
-        </div>
-        <div class="room-actions">
-          <button class="btn btn-ghost btn-sm" @click="copyInviteLink">
-            {{ copied ? 'Lien copié !' : 'Copier le lien d\'invitation' }}
-          </button>
-          <button class="btn btn-ghost btn-sm" @click="leaveToLobby">Quitter</button>
-        </div>
+      <div v-if="checking" class="skeleton" style="height: 320px"></div>
+
+      <div v-else-if="notFound" class="panel not-found">
+        <h1>Salle introuvable</h1>
+        <p class="muted">Le code « {{ roomCode }} » ne correspond à aucune salle — elle a peut-être été fermée.</p>
+        <router-link to="/rooms" class="btn btn-primary">Retour aux salles</router-link>
       </div>
 
-      <p v-if="error" class="msg-error">{{ error }}</p>
+      <template v-else>
+        <div class="room-head">
+          <div>
+            <h1>{{ room?.name || 'Salle' }}</h1>
+            <p class="muted">
+              <span v-if="!connected">Connexion...</span>
+              <span v-else>{{ members.length }} participant{{ members.length > 1 ? 's' : '' }} · code {{ roomCode }}</span>
+            </p>
+          </div>
+          <div class="room-actions">
+            <button class="btn btn-ghost btn-sm" @click="copyInviteLink">
+              {{ copied ? 'Lien copié !' : 'Copier le lien d\'invitation' }}
+            </button>
+            <button class="btn btn-ghost btn-sm" @click="leaveToLobby">Quitter</button>
+          </div>
+        </div>
 
-      <div class="room-body">
+        <p v-if="error" class="msg-error">{{ error }}</p>
+
+        <div class="room-body">
         <div class="video-slot panel">
           <p class="muted">Lecteur vidéo synchronisé — bientôt disponible.</p>
         </div>
@@ -132,7 +156,8 @@ function leaveToLobby() {
             <button type="submit" class="btn btn-primary btn-sm" :disabled="!connected">Envoyer</button>
           </form>
         </aside>
-      </div>
+        </div>
+      </template>
     </div>
   </main>
 </template>
@@ -149,6 +174,16 @@ function leaveToLobby() {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  max-width: 480px;
+  margin: 2rem auto 0;
+  text-align: left;
 }
 
 .room-actions {
