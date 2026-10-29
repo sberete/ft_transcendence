@@ -60,6 +60,12 @@ export function createRoomSocket(token, self) {
         break
       case 'room.member_left':
         members.value = members.value.filter((m) => m.id !== msg.user_id)
+        // Si qui part etait proprietaire, la salle a ete transferee a qui
+        // est present depuis le plus longtemps (voir registry::leave cote
+        // backend) : refleter ca tout de suite, sans attendre un room.state.
+        if (msg.new_owner_id != null && room.value) {
+          room.value = { ...room.value, owner_id: msg.new_owner_id }
+        }
         break
       case 'room.closed':
         error.value = 'Cette salle a ete fermee.'

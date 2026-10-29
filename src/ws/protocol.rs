@@ -70,7 +70,10 @@ pub enum ServerMessage {
     #[serde(rename = "room.member_joined")]
     RoomMemberJoined { user: UserRef },
     #[serde(rename = "room.member_left")]
-    RoomMemberLeft { user_id: i64 },
+    // new_owner_id : present seulement si celui qui part etait le proprietaire
+    // et que la salle continue (transfert au membre present depuis le plus
+    // longtemps, voir registry::leave).
+    RoomMemberLeft { user_id: i64, new_owner_id: Option<i64> },
     // Pas encore declenche par ce code : la seule facon de fermer une room
     // pour l'instant est l'auto-suppression quand elle se vide (personne a
     // prevenir, donc inutile d'emettre ce message dans ce cas precis).

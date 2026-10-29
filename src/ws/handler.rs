@@ -229,7 +229,17 @@ async fn leave_current_room(state: &WsState, _tx: &OutgoingTx, user: &UserRef, c
             .execute(&state.pool)
             .await;
     } else {
-        broadcast(&outcome.notify_remaining, &ServerMessage::RoomMemberLeft { user_id: user.id });
+        if let Some(new_owner_id) = outcome.new_owner_id {
+            let _ = sqlx::query("UPDATE rooms SET owner_id = $1 WHERE id = $2")
+                .bind(new_owner_id)
+                .bind(room_id)
+                .execute(&state.pool)
+                .await;
+        }
+        broadcast(
+            &outcome.notify_remaining,
+            &ServerMessage::RoomMemberLeft { user_id: user.id, new_owner_id: outcome.new_owner_id },
+        );
     }
 }
 

@@ -18,6 +18,9 @@ pub type OutgoingTx = mpsc::UnboundedSender<Message>;
 struct LiveMember {
     user: UserRef,
     tx: OutgoingTx,
+    // Sert a trouver qui est present depuis le plus longtemps, pour lui
+    // transferer la propriete du salon si son proprietaire part (voir leave()).
+    joined_at: i64,
 }
 
 struct LiveRoom {
@@ -41,6 +44,10 @@ pub struct JoinOutcome {
 pub struct LeaveOutcome {
     pub room_is_empty: bool,
     pub notify_remaining: Vec<OutgoingTx>,
+    // Some(id) si celui qui part etait proprietaire et que la salle continue :
+    // le nouveau proprietaire (deja applique dans le registre), a persister
+    // en base et a annoncer aux membres restants.
+    pub new_owner_id: Option<i64>,
 }
 
 #[derive(Clone)]
@@ -80,7 +87,7 @@ impl RoomRegistry {
             notify_others,
         };
 
-        room.members.insert(user.id, LiveMember { user, tx });
+        room.members.insert(user.id, LiveMember { user, tx, joined_at: now_ms() });
         outcome
     }
 
@@ -89,18 +96,33 @@ impl RoomRegistry {
     {
         let mut rooms = self.rooms.lock().unwrap();
         let Some(room) = rooms.get_mut(&room_id) else {
-            return LeaveOutcome { room_is_empty: true, notify_remaining: Vec::new() };
+            return LeaveOutcome { room_is_empty: true, notify_remaining: Vec::new(), new_owner_id: None };
         };
 
+        let was_owner = room.owner_id == user_id;
         room.members.remove(&user_id);
         let room_is_empty = room.members.is_empty();
+
+        // Le proprietaire part mais la salle continue : elle revient a qui
+        // est present depuis le plus longtemps, plutot que de rester bloquee
+        // sans personne pour changer la video.
+        let new_owner_id = if was_owner && !room_is_empty {
+            let heir = room.members.values().min_by_key(|m| m.joined_at).map(|m| m.user.id);
+            if let Some(id) = heir {
+                room.owner_id = id;
+            }
+            heir
+        } else {
+            None
+        };
+
         let notify_remaining = room.members.values().map(|m| m.tx.clone()).collect();
 
         if room_is_empty {
             rooms.remove(&room_id);
         }
 
-        LeaveOutcome { room_is_empty, notify_remaining }
+        LeaveOutcome { room_is_empty, notify_remaining, new_owner_id }
     }
 
     pub fn members_tx(&self, room_id: i64)
