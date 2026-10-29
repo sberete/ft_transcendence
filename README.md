@@ -248,7 +248,7 @@ this table is kept honest rather than aspirational.
 
 | Module | Category | Points | Status |
 |---|---|---|---|
-| Real-time features (WebSockets) | Web, Major | 2 | **In progress** — rooms, presence and chat are done and tested; synchronized playback (play/pause/seek) is designed but not implemented |
+| Real-time features (WebSockets) | Web, Major | 2 | **In progress** — rooms, presence, chat and synchronized playback are all implemented and the protocol is verified end-to-end (owner-only video changes, play/pause/seek broadcasting, ping/pong); the client-side drift-correction logic itself hasn't been watched working in an actual browser with two real sessions yet |
 | Allow users to interact (chat, profile, friends) | Web, Major | 2 | **Done** |
 | Standard user management | User Management, Major | 2 | **Done** |
 | Recommendation system (ML) | Artificial Intelligence, Major | 2 | **Not started** |
