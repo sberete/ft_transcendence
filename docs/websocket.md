@@ -1,9 +1,10 @@
 # Contrat temps réel SyncWatch (WebSocket)
 
-> **Statut : proposition.** Rien de ce document n'est encore implémenté. Il
-> fixe le format des échanges *avant* d'écrire le module `ws` (phase 3), pour
-> que backend et frontend puissent être développés chacun de leur côté.
-> Le contrat REST, lui, décrit l'existant : voir `openapi.yaml`.
+> **Statut : implémenté.** Ce document a servi de contrat avant d'écrire le
+> module `ws` (phase 3) ; le code le suit maintenant au caractère près (voir
+> `src/rooms/`, `src/ws/`). Mise à jour 2026-10-29 : les salles s'identifient
+> par un `code` à 6 chiffres généré aléatoirement (plus par l'`id` interne
+> séquentiel, trop facile à deviner en l'incrémentant).
 
 ## 1. Vue d'ensemble
 
@@ -16,7 +17,8 @@ diffuse à tous.
 Client A ── playback.pause ──► Serveur ── playback.state ──► A, B, C
 ```
 
-Les tables `rooms` et `messages` existent déjà (migration 0001).
+Les tables `rooms` et `messages` existent depuis la migration 0001 ; la
+colonne `code` (migration 0004) a été ajoutée ensuite.
 
 ## 2. Routes REST à ajouter
 
@@ -26,13 +28,16 @@ actions ponctuelles, pas du temps réel.
 | Méthode | Chemin | Rôle | Réponse |
 |---|---|---|---|
 | `POST` | `/rooms` | Créer une salle. Corps : `{"name"}` | `201` `Room` |
-| `GET` | `/rooms/{id}` | Lire une salle | `200` `Room` · `404` |
-| `DELETE` | `/rooms/{id}` | Supprimer sa salle | `204` · `403` si pas propriétaire |
-| `GET` | `/rooms/{id}/messages?before={id}&limit=50` | Historique du chat, du plus récent au plus ancien | `200` `[ChatMessage]` |
+| `GET` | `/rooms/{code}` | Lire une salle | `200` `Room` · `404` |
+| `DELETE` | `/rooms/{code}` | Supprimer sa salle | `204` · `403` si pas propriétaire |
+| `GET` | `/rooms/{code}/messages?before={id}&limit=50` | Historique du chat, du plus récent au plus ancien | `200` `[ChatMessage]` |
+
+`{code}` est le code à 6 chiffres renvoyé à la création, pas un id interne —
+c'est la seule façon de désigner une salle depuis l'extérieur du backend.
 
 ```json
 // Room
-{ "id": 12, "name": "Soirée Chaplin", "owner_id": 3, "created_at": "2026-10-10T20:00:00Z" }
+{ "code": "335551", "name": "Soirée Chaplin", "owner_id": 3, "created_at": "2026-10-10T20:00:00Z" }
 ```
 
 Toutes privées (`Authorization: Bearer`). À ajouter dans `openapi.yaml` au
@@ -81,7 +86,7 @@ message ; les autres champs dépendent du type.
 | `type` | Champs | Effet |
 |---|---|---|
 | `auth` | `token` | Authentifie la connexion. |
-| `room.join` | `room_id` | Rejoint une salle. Quitte la précédente : une connexion = une salle. |
+| `room.join` | `code` | Rejoint une salle. Quitte la précédente : une connexion = une salle. |
 | `room.leave` | — | Quitte la salle courante. |
 | `chat.send` | `content` (1 à 500 caractères) | Envoie un message dans la salle. |
 | `playback.set_media` | `provider`, `id` | Change la vidéo de la salle. Remet la position à 0, en pause. |
@@ -111,7 +116,7 @@ Le serveur les valide de la même façon, et n'accepte jamais d'URL.
 // room.state
 {
   "type": "room.state",
-  "room": { "id": 12, "name": "Soirée Chaplin", "owner_id": 3 },
+  "room": { "code": "335551", "name": "Soirée Chaplin", "owner_id": 3 },
   "members": [{ "id": 3, "username": "alice", "avatar_url": null }],
   "media": { "provider": "archive", "id": "notld_201610" },
   "playback": { "playing": true, "position": 754.2, "server_time": 1791590000000 }
@@ -216,7 +221,7 @@ croissant (1 s, 2 s, 4 s… plafonné à 30 s), renvoie `auth` puis `room.join`.
    (`playback.set_media` refusé avec `forbidden` si l'appelant n'est pas
    `owner_id`).
 2. **Qui peut rejoindre une salle ?** Toute personne connectée qui a le
-   lien (`room_id`). Pas de vérification d'amitié.
+   code à 6 chiffres. Pas de vérification d'amitié.
 3. **Que devient une salle vide ?** **Suppression automatique** dès que le
    dernier membre quitte ou se déconnecte (différent de la proposition
    initiale). Le serveur diffuse `room.closed` avant de fermer les
