@@ -1,10 +1,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { BASE_URL, getRoom, listRoomMessages } from '../services/api'
+import VideoPlayer from '../components/VideoPlayer.vue'
+import { BASE_URL, getMediaDetails, getRoom, listRoomMessages, searchMedia } from '../services/api'
 import { useAuth } from '../services/auth'
 import { useCurrentUser } from '../services/currentUser'
-import { avatarSrc } from '../services/format'
+import { PROVIDER_LABELS, avatarSrc } from '../services/format'
+import { createPlaybackSync } from '../services/playbackSync'
 import { createRoomSocket } from '../services/roomSocket'
 
 const route = useRoute()
@@ -16,7 +18,7 @@ const { user, load: loadUser } = useCurrentUser()
 // comme "012345" serait tronque par Number()).
 const roomCode = computed(() => String(route.params.code))
 const socket = createRoomSocket(token.value, user)
-const { connected, room, members, messages, error } = socket
+const { connected, room, members, media, messages, error } = socket
 
 const history = ref([])
 const newMessage = ref('')
@@ -24,6 +26,69 @@ const chatEl = ref(null)
 const copied = ref(false)
 const checking = ref(true)
 const notFound = ref(false)
+
+const isOwner = computed(() => room.value && user.value && room.value.owner_id === user.value.id)
+
+// --- Video : chargement des details + synchro ---
+const mediaDetails = ref(null)
+const mediaError = ref('')
+const currentStream = computed(() => mediaDetails.value?.streams?.[0] ?? null)
+const playerRef = ref(null)
+const videoEl = computed(() => playerRef.value?.video?.value ?? null)
+const sync = createPlaybackSync(socket, videoEl)
+
+watch(
+  () => media.value,
+  async (m) => {
+    mediaDetails.value = null
+    mediaError.value = ''
+    if (!m) return
+    try {
+      mediaDetails.value = await getMediaDetails(token.value, m.provider, m.id)
+    } catch (err) {
+      mediaError.value = err.message
+    }
+  },
+  { immediate: true },
+)
+
+watch(videoEl, (el) => sync.attach(el))
+
+// Demarre la calibration d'horloge (ping/pong) des que la connexion est
+// vraiment prete, pas avant : des pings envoyes trop tot seraient perdus
+// (le WebSocket n'accepte d'envoi qu'une fois ouvert).
+const stopWatchConnected = watch(connected, (isConnected) => {
+  if (isConnected) {
+    sync.start()
+    stopWatchConnected()
+  }
+})
+
+// --- Choix de la video (proprietaire uniquement) ---
+const pickerOpen = ref(false)
+const pickerQuery = ref('')
+const pickerResults = ref([])
+const pickerSearching = ref(false)
+
+async function handlePickerSearch() {
+  const q = pickerQuery.value.trim()
+  if (!q) return
+  pickerSearching.value = true
+  try {
+    pickerResults.value = await searchMedia(token.value, q)
+  } catch {
+    pickerResults.value = []
+  } finally {
+    pickerSearching.value = false
+  }
+}
+
+function selectMedia(item) {
+  socket.send('playback.set_media', { provider: item.provider, id: item.id })
+  pickerOpen.value = false
+  pickerResults.value = []
+  pickerQuery.value = ''
+}
 
 const inviteLink = computed(() => `${window.location.origin}/room/${roomCode.value}`)
 
@@ -78,6 +143,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  sync.stop()
   socket.leaveRoom()
   socket.close()
 })
@@ -126,7 +192,62 @@ function leaveToLobby() {
 
         <div class="room-body">
         <div class="video-slot panel">
-          <p class="muted">Lecteur vidéo synchronisé — bientôt disponible.</p>
+          <div v-if="pickerOpen" class="picker">
+            <div class="picker-head">
+              <h2>Choisir une vidéo</h2>
+              <button class="btn btn-ghost btn-sm" @click="pickerOpen = false">Annuler</button>
+            </div>
+            <form class="picker-form" @submit.prevent="handlePickerSearch">
+              <input
+                v-model="pickerQuery"
+                class="input"
+                type="text"
+                placeholder="Rechercher un film, une vidéo..."
+                maxlength="100"
+              />
+              <button type="submit" class="btn btn-primary btn-sm" :disabled="pickerSearching">
+                {{ pickerSearching ? 'Recherche...' : 'Rechercher' }}
+              </button>
+            </form>
+            <ul v-if="pickerResults.length" class="picker-results">
+              <li v-for="item in pickerResults" :key="`${item.provider}:${item.id}`">
+                <button class="picker-result" @click="selectMedia(item)">
+                  <img v-if="item.thumbnail" :src="item.thumbnail" alt="" />
+                  <span class="picker-result-info">
+                    <span class="picker-result-title">{{ item.title }}</span>
+                    <span class="muted">{{ PROVIDER_LABELS[item.provider] }}<template v-if="item.year"> · {{ item.year }}</template></span>
+                  </span>
+                </button>
+              </li>
+            </ul>
+            <p v-else-if="!pickerSearching && pickerQuery" class="muted">Aucun résultat.</p>
+          </div>
+
+          <template v-else-if="media">
+            <div v-if="mediaError" class="video-message">
+              <p class="msg-error">Impossible de charger cette vidéo.</p>
+              <p class="muted">{{ mediaError }}</p>
+            </div>
+            <div v-else-if="!currentStream" class="skeleton" style="width: 100%; height: 100%"></div>
+            <VideoPlayer
+              v-else
+              ref="playerRef"
+              :src="currentStream.url"
+              :kind="currentStream.kind"
+              :poster="mediaDetails.backdrop || mediaDetails.thumbnail"
+            />
+            <button v-if="isOwner" class="btn btn-ghost btn-sm change-video" @click="pickerOpen = true">
+              Changer la vidéo
+            </button>
+          </template>
+
+          <div v-else class="video-message">
+            <p class="muted" v-if="isOwner">Aucune vidéo choisie pour l'instant.</p>
+            <p class="muted" v-else>En attente que le propriétaire choisisse une vidéo.</p>
+            <button v-if="isOwner" class="btn btn-primary btn-sm" @click="pickerOpen = true">
+              Choisir une vidéo
+            </button>
+          </div>
         </div>
 
         <aside class="chat panel">
@@ -200,10 +321,115 @@ function leaveToLobby() {
 }
 
 .video-slot {
+  position: relative;
   aspect-ratio: 16 / 9;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  padding: 0;
+}
+
+.video-slot :deep(.player) {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  object-fit: contain;
+}
+
+.video-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.change-video {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  background: rgba(11, 11, 16, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.picker {
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.picker-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.picker-form .input {
+  flex: 1;
+}
+
+.picker-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.picker-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.picker-result:hover {
+  border-color: var(--accent);
+}
+
+.picker-result img {
+  width: 64px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.picker-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.picker-result-title {
+  font-weight: 600;
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat {
