@@ -12,6 +12,10 @@ const bare = computed(() => route.meta.bare)
   <router-view />
   <footer v-if="!bare" class="footer">
     <p>SyncWatch · projet pédagogique · contenus du domaine public et sous licence libre</p>
+    <nav class="footer-links">
+      <router-link to="/privacy">Politique de confidentialité</router-link>
+      <router-link to="/terms">Conditions générales d'utilisation</router-link>
+    </nav>
   </footer>
 </template>
 
@@ -22,5 +26,22 @@ const bare = computed(() => route.meta.bare)
   font-size: 0.8rem;
   color: var(--text);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.footer-links a {
+  color: var(--text);
+}
+
+.footer-links a:hover {
+  color: var(--text-h);
 }
 </style>

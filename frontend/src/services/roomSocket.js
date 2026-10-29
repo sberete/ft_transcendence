@@ -83,7 +83,7 @@ export function createRoomSocket(token, self) {
 
   function connect() {
     manuallyClosed = false
-    socket = new WebSocket(`${BASE_URL.replace(/^http/, 'ws')}/ws`)
+    socket = new WebSocket(`${BASE_URL.replace(/^http/, 'ws')}/api/ws`)
 
     socket.onopen = () => send('auth', { token })
     socket.onmessage = handleMessage
