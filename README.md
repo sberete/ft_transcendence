@@ -113,27 +113,10 @@ pair-programming assistant, not as an autonomous author:
   PostgreSQL, Vue), and product decisions (e.g. the 4 room-behaviour
   choices in `docs/websocket.md` section 9) — always made or validated by
   me, never decided unilaterally by the AI.
-- **Implementation**: assisted writing of backend modules (`auth`,
-  `users`, `friends`, `rooms`, `ws`, `media`) and the frontend, with
-  systematic review and testing after each step (`curl`, WebSocket test
-  scripts, the real Docker stack) before committing anything.
-- **Debugging**: several real bugs found and fixed this way — for example
-  a `media: null` field missing from the `playback.state` broadcast after
-  changing the video, a stale backend IP cached by nginx after a
-  container restart, and a path collision between a frontend page and a
-  backend route once both were merged behind one HTTPS origin.
-  Full write-ups, including false leads chased before finding the real
-  cause, are kept in the project's own working journal (not part of this
-  repository).
 - **Learning Rust**: a full set of warm-up exercises (not part of this
   repository) was used to learn the language before starting the project;
   those exercises were written and coded entirely by me, with the AI only
   providing the prompts, never the solutions.
-- **What I can explain**: the backend's architecture (modules, the
-  `AuthUser` extractor, the connection pool, migrations), the WebSocket
-  protocol and the reasoning behind each decision in it, and how the
-  Docker/nginx setup fits together — I can defend every part of this
-  project in person, not just show that it runs.
 
 ## Team Information
 
