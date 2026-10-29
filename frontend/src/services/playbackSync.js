@@ -54,6 +54,21 @@ export function createPlaybackSync(socket, videoRef) {
     return pb.position
   }
 
+  // `play()`/`pause()`/l'affectation de `currentTime` declenchent leurs
+  // evenements ('play', 'pause', 'seeked') de facon ASYNCHRONE : relever le
+  // drapeau tout de suite apres l'appel ne protege rien, l'evenement arrive
+  // apres coup avec `suppress` deja retombe a false. Le correctif applique
+  // alors fini par se renvoyer lui-meme au serveur comme une action
+  // utilisateur, avec une position legerement differente qui ecrase le bon
+  // etat : c'est ce qui rendait la lecture visiblement "jamais synchro".
+  // On garde donc `suppress` leve pendant une fenetre, pas juste le temps
+  // de l'appel.
+  function withSuppression(action, windowMs) {
+    suppress = true
+    action()
+    setTimeout(() => { suppress = false }, windowMs)
+  }
+
   function correctDrift() {
     const video = videoRef.value
     const pb = socket.playback.value
@@ -62,13 +77,9 @@ export function createPlaybackSync(socket, videoRef) {
     // L'etat lecture/pause doit matcher le serveur (ex: un autre membre a mis
     // en pause) avant meme de corriger la position.
     if (pb.playing && video.paused) {
-      suppress = true
-      video.play().catch(() => {})
-      suppress = false
+      withSuppression(() => video.play().catch(() => {}), 300)
     } else if (!pb.playing && !video.paused) {
-      suppress = true
-      video.pause()
-      suppress = false
+      withSuppression(() => video.pause(), 300)
     }
 
     const expected = expectedPosition()
@@ -81,10 +92,12 @@ export function createPlaybackSync(socket, videoRef) {
       // En retard (drift < 0) : accelere legerement. En avance : ralentit.
       video.playbackRate = drift < 0 ? RATE_BEHIND : RATE_AHEAD
     } else {
-      suppress = true
-      video.currentTime = expected
-      video.playbackRate = 1
-      suppress = false
+      // 'seeked' peut prendre plus longtemps qu'un simple play/pause (depend
+      // du buffering reseau) : fenetre plus large.
+      withSuppression(() => {
+        video.currentTime = expected
+        video.playbackRate = 1
+      }, 800)
     }
   }
 
