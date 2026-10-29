@@ -19,6 +19,20 @@ const { connected, room, members, messages, error } = socket
 const history = ref([])
 const newMessage = ref('')
 const chatEl = ref(null)
+const copied = ref(false)
+
+const inviteLink = computed(() => `${window.location.origin}/room/${roomId.value}`)
+
+async function copyInviteLink() {
+  try {
+    await navigator.clipboard.writeText(inviteLink.value)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch {
+    // Presse-papiers indisponible (contexte non securise, permission refusee...) :
+    // le lien reste visible et selectionnable a la main.
+  }
+}
 
 // Historique (REST, pagine, plus recent en premier) + messages vus depuis la
 // connexion WS (deja chronologiques) : on affiche l'un a la suite de l'autre.
@@ -71,10 +85,15 @@ function leaveToLobby() {
           <h1>{{ room?.name || 'Salle' }}</h1>
           <p class="muted">
             <span v-if="!connected">Connexion...</span>
-            <span v-else>{{ members.length }} participant{{ members.length > 1 ? 's' : '' }}</span>
+            <span v-else>{{ members.length }} participant{{ members.length > 1 ? 's' : '' }} · salle n°{{ roomId }}</span>
           </p>
         </div>
-        <button class="btn btn-ghost btn-sm" @click="leaveToLobby">Quitter</button>
+        <div class="room-actions">
+          <button class="btn btn-ghost btn-sm" @click="copyInviteLink">
+            {{ copied ? 'Lien copié !' : 'Copier le lien d\'invitation' }}
+          </button>
+          <button class="btn btn-ghost btn-sm" @click="leaveToLobby">Quitter</button>
+        </div>
       </div>
 
       <p v-if="error" class="msg-error">{{ error }}</p>
@@ -128,6 +147,12 @@ function leaveToLobby() {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.room-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .room-body {
