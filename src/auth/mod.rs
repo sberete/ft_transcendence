@@ -2,6 +2,7 @@ mod extractor;
 mod handlers;
 mod oauth;
 mod password;
+pub mod rate_limit;
 mod session;
 
 use axum::routing::{get, post};
@@ -10,6 +11,7 @@ use sqlx::PgPool;
 
 pub use extractor::AuthUser;
 pub use oauth::OAuthConfig;
+pub use rate_limit::LoginRateLimiter;
 pub use session::validate_session;
 
 pub fn router()
