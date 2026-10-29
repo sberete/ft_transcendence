@@ -12,6 +12,14 @@ const SMALL_DRIFT_S = 0.25
 const LARGE_DRIFT_S = 2
 const RATE_BEHIND = 1.05
 const RATE_AHEAD = 0.95
+// Apres une action locale genuine (clic sur play/pause, ou une avance), le
+// serveur met un instant a repondre avec l'etat a jour. Si la correction
+// automatique tombe pile dans cette fenetre, elle lit encore l'ANCIEN etat
+// (ex: "pas en lecture") et annule ce que l'utilisateur vient de faire -
+// typiquement en remettant sa propre video en pause juste apres l'avoir
+// lancee. On ignore donc toute correction pendant un court delai apres une
+// action locale, le temps que l'aller-retour reseau se termine.
+const LOCAL_ACTION_GRACE_MS = 1500
 
 // `socket` : l'objet renvoye par createRoomSocket (roomSocket.js), deja
 // connecte a la salle. `videoRef` : un objet avec une propriete .value qui
@@ -24,6 +32,7 @@ export function createPlaybackSync(socket, videoRef) {
   let correctionTimer = null
   let pingTimer = null
   let attachedVideo = null
+  let lastLocalActionAt = 0
   // Les navigateurs bloquent l'autoplay avec le son tant qu'il n'y a pas eu
   // de vrai clic sur CETTE video precise : un clic ailleurs sur la page
   // (chat, header...) ne compte pas. Quand la tentative automatique de
@@ -81,6 +90,7 @@ export function createPlaybackSync(socket, videoRef) {
     const video = videoRef.value
     const pb = socket.playback.value
     if (!video || !pb || video.readyState === 0) return
+    if (Date.now() - lastLocalActionAt < LOCAL_ACTION_GRACE_MS) return
 
     // L'etat lecture/pause doit matcher le serveur (ex: un autre membre a mis
     // en pause) avant meme de corriger la position.
@@ -118,14 +128,17 @@ export function createPlaybackSync(socket, videoRef) {
   // les boucles").
   function onPlay() {
     if (suppress) return
+    lastLocalActionAt = Date.now()
     socket.send('playback.play', { position: videoRef.value.currentTime })
   }
   function onPause() {
     if (suppress) return
+    lastLocalActionAt = Date.now()
     socket.send('playback.pause', { position: videoRef.value.currentTime })
   }
   function onSeeked() {
     if (suppress) return
+    lastLocalActionAt = Date.now()
     socket.send('playback.seek', { position: videoRef.value.currentTime })
   }
 

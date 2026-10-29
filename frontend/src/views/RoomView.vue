@@ -33,9 +33,13 @@ const isOwner = computed(() => room.value && user.value && room.value.owner_id =
 const mediaDetails = ref(null)
 const mediaError = ref('')
 const currentStream = computed(() => mediaDetails.value?.streams?.[0] ?? null)
-const playerRef = ref(null)
-const videoEl = computed(() => playerRef.value?.video?.value ?? null)
+const videoEl = ref(null)
 const sync = createPlaybackSync(socket, videoEl)
+
+function onVideoReady(el) {
+  videoEl.value = el
+  sync.attach(el)
+}
 
 watch(
   () => media.value,
@@ -51,8 +55,6 @@ watch(
   },
   { immediate: true },
 )
-
-watch(videoEl, (el) => sync.attach(el))
 
 // Demarre la calibration d'horloge (ping/pong) des que la connexion est
 // vraiment prete, pas avant : des pings envoyes trop tot seraient perdus
@@ -231,10 +233,10 @@ function leaveToLobby() {
             <div v-else-if="!currentStream" class="skeleton" style="width: 100%; height: 100%"></div>
             <VideoPlayer
               v-else
-              ref="playerRef"
               :src="currentStream.url"
               :kind="currentStream.kind"
               :poster="mediaDetails.backdrop || mediaDetails.thumbnail"
+              @video-ready="onVideoReady"
             />
             <div v-if="sync.needsGesture.value" class="gesture-overlay">
               <button class="btn btn-primary" @click="sync.resume()">Rejoindre la lecture</button>

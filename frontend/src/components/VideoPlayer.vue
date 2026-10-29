@@ -11,7 +11,15 @@ const props = defineProps({
   poster: { type: String, default: null },
 })
 
+// Emis en plus de defineExpose({ video }) : un parent qui recupere l'element
+// <video> expose a travers un ref de composant doit deballer DEUX niveaux de
+// ref (componentRef.value.video.value), ce qui s'est avere peu fiable en
+// pratique (voir RoomView.vue). Un evenement est sans ambiguite : la valeur
+// recue est directement l'element, jamais un ref a deballer.
+const emit = defineEmits(['video-ready'])
+
 const video = ref(null)
+watch(video, (el) => emit('video-ready', el))
 let hls = null
 
 function load() {

@@ -67,10 +67,20 @@ export function createRoomSocket(token, self) {
       case 'chat.message':
         messages.value = [...messages.value, msg]
         break
-      case 'playback.state':
-        media.value = msg.media
+      case 'playback.state': {
+        // playback.state est diffuse pour CHAQUE action (play/pause/seek),
+        // pas seulement un changement de video, mais `media` est toujours
+        // present dans le message. Le reassigner sans condition donne un
+        // nouvel objet a chaque fois (JSON fraichement parse) meme quand
+        // c'est exactement la meme video : ca suffisait a faire recreer le
+        // lecteur (RoomView.vue observe media.value) a chaque clic play/
+        // pause, remettant la lecture a zero a repetition. On ne reassigne
+        // donc que si le contenu a reellement change.
+        const same = media.value?.provider === msg.media?.provider && media.value?.id === msg.media?.id
+        if (!same) media.value = msg.media
         playback.value = { playing: msg.playing, position: msg.position, server_time: msg.server_time }
         break
+      }
       case 'error':
         error.value = msg.message
         break
