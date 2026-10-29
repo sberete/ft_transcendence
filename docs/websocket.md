@@ -105,8 +105,7 @@ Le serveur les valide de la même façon, et n'accepte jamais d'URL.
 | `auth.ok` | `user` (`{id, username, avatar_url}`) | Après un `auth` valide. |
 | `room.state` | `room`, `members`, `media`, `playback` | Juste après `room.join` : l'état complet. |
 | `room.member_joined` | `user` | Quelqu'un entre dans la salle. |
-| `room.member_left` | `user_id` | Quelqu'un sort ou se déconnecte. |
-| `room.closed` | — | La salle a été supprimée. |
+| `room.member_left` | `user_id`, `new_owner_id` | Quelqu'un sort ou se déconnecte. `new_owner_id` est présent seulement si qui part était propriétaire et que la salle continue (transfert au membre présent depuis le plus longtemps). |
 | `chat.message` | `id`, `sender`, `content`, `created_at` | Nouveau message, y compris pour son auteur. |
 | `playback.state` | `media`, `playing`, `position`, `server_time`, `by` | À chaque changement de lecture, à tous. |
 | `pong` | `t`, `server_time` | Réponse à `ping`. |
@@ -224,11 +223,13 @@ croissant (1 s, 2 s, 4 s… plafonné à 30 s), renvoie `auth` puis `room.join`.
    code à 6 chiffres. Pas de vérification d'amitié.
 3. **Que devient une salle vide ?** **Suppression automatique** dès que le
    dernier membre quitte ou se déconnecte (différent de la proposition
-   initiale). Le serveur diffuse `room.closed` avant de fermer les
-   connexions restantes, puis supprime la ligne `rooms` (cascade sur
-   `messages` via la contrainte existante). Une salle qui n'a jamais eu de
-   membre connecté (créée puis jamais rejointe) n'est pas concernée tant
-   que personne n'a déclenché `room.join` puis quitté.
+   initiale) : plus personne à qui diffuser quoi que ce soit, le serveur
+   supprime directement la ligne `rooms` (cascade sur `messages` via la
+   contrainte existante). Si le propriétaire part mais que la salle
+   continue, elle n'est pas fermée : la propriété passe au membre présent
+   depuis le plus longtemps (`room.member_left.new_owner_id`). Une salle
+   qui n'a jamais eu de membre connecté (créée puis jamais rejointe) n'est
+   pas concernée tant que personne n'a déclenché `room.join` puis quitté.
 4. **Le chat est-il conservé ?** Oui, dans la table `messages`. Texte brut
    uniquement, jamais interprété comme HTML (`v-text`/interpolation côté
    Vue, jamais `v-html`).

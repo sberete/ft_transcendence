@@ -7,7 +7,6 @@ use serde::Serialize;
 pub enum ApiError {
     BadRequest(String),
     Unauthorized,
-    Forbidden(String),
     NotFound(String),
     Conflict(String),
     Internal,
@@ -26,7 +25,6 @@ impl ApiError {
         match self {
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Unauthorized => StatusCode::UNAUTHORIZED,
-            ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
             ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
@@ -39,7 +37,6 @@ impl ApiError {
         match self {
             ApiError::BadRequest(msg) => msg.clone(),
             ApiError::Unauthorized => "unauthorized".to_string(),
-            ApiError::Forbidden(msg) => msg.clone(),
             ApiError::NotFound(msg) => msg.clone(),
             ApiError::Conflict(msg) => msg.clone(),
             ApiError::Internal => "internal server error".to_string(),

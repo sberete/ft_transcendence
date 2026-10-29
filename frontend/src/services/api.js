@@ -133,13 +133,6 @@ export function getRoom(token, code) {
   })
 }
 
-export function deleteRoom(token, code) {
-  return request(`/rooms/${code}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  })
-}
-
 // Historique uniquement : les nouveaux messages arrivent par WebSocket
 // (evenement chat.message), pas par cette route. Plus recent en premier.
 export function listRoomMessages(token, code, before = null, limit = 50) {

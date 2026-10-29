@@ -74,15 +74,6 @@ pub enum ServerMessage {
     // et que la salle continue (transfert au membre present depuis le plus
     // longtemps, voir registry::leave).
     RoomMemberLeft { user_id: i64, new_owner_id: Option<i64> },
-    // Pas encore declenche par ce code : la seule facon de fermer une room
-    // pour l'instant est l'auto-suppression quand elle se vide (personne a
-    // prevenir, donc inutile d'emettre ce message dans ce cas precis).
-    // Garde pour completude du contrat - utile le jour ou DELETE /rooms/{id}
-    // (branche rooms-rest) sera reliee a ce registre pour fermer une salle
-    // encore occupee.
-    #[serde(rename = "room.closed")]
-    #[allow(dead_code)]
-    RoomClosed,
     #[serde(rename = "chat.message")]
     ChatMessage {
         id: i64,

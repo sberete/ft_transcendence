@@ -118,29 +118,6 @@ pub async fn get_room(_auth: AuthUser, State(pool): State<PgPool>, Path(code): P
     Ok(Json(room))
 }
 
-pub async fn delete_room(auth: AuthUser, State(pool): State<PgPool>, Path(code): Path<String>)
-    -> Result<StatusCode, ApiError>
-{
-    let owner: Option<(i64,)> = sqlx::query_as("SELECT owner_id FROM rooms WHERE code = $1")
-        .bind(&code)
-        .fetch_optional(&pool)
-        .await
-        .map_err(|_| ApiError::Internal)?;
-
-    let owner_id = owner.ok_or_else(|| ApiError::NotFound("room not found".into()))?.0;
-    if owner_id != auth.user_id {
-        return Err(ApiError::Forbidden("only the room owner can delete it".into()));
-    }
-
-    sqlx::query("DELETE FROM rooms WHERE code = $1")
-        .bind(&code)
-        .execute(&pool)
-        .await
-        .map_err(|_| ApiError::Internal)?;
-
-    Ok(StatusCode::NO_CONTENT)
-}
-
 pub async fn list_messages(
     _auth: AuthUser,
     State(pool): State<PgPool>,

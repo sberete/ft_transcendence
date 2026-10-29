@@ -67,9 +67,6 @@ export function createRoomSocket(token, self) {
           room.value = { ...room.value, owner_id: msg.new_owner_id }
         }
         break
-      case 'room.closed':
-        error.value = 'Cette salle a ete fermee.'
-        break
       case 'chat.message':
         messages.value = [...messages.value, msg]
         break
