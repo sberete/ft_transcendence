@@ -15,7 +15,7 @@ pub struct CreateRoomRequest {
 
 #[derive(Serialize, sqlx::FromRow)]
 pub struct RoomView {
-    id: i64,
+    code: String,
     name: String,
     owner_id: i64,
     created_at: DateTime<Utc>,
@@ -67,6 +67,13 @@ impl From<MessageRow> for ChatMessageView {
     }
 }
 
+const MAX_CODE_ATTEMPTS: u32 = 5;
+
+fn random_code() -> String {
+    use rand::Rng;
+    format!("{:06}", rand::thread_rng().gen_range(0..1_000_000))
+}
+
 pub async fn create_room(auth: AuthUser, State(pool): State<PgPool>, Json(payload): Json<CreateRoomRequest>)
     -> Result<(StatusCode, Json<RoomView>), ApiError>
 {
@@ -74,23 +81,35 @@ pub async fn create_room(auth: AuthUser, State(pool): State<PgPool>, Json(payloa
         return Err(ApiError::BadRequest("room name is required".into()));
     }
 
-    let room: RoomView = sqlx::query_as(
-        "INSERT INTO rooms (name, owner_id) VALUES ($1, $2) RETURNING id, name, owner_id, created_at",
-    )
-    .bind(payload.name.trim())
-    .bind(auth.user_id)
-    .fetch_one(&pool)
-    .await
-    .map_err(|_| ApiError::Internal)?;
+    // Quelques tentatives en cas de collision sur le code (tres improbable
+    // a 10^6 valeurs, mais une contrainte UNIQUE existe donc autant la gerer).
+    for _ in 0..MAX_CODE_ATTEMPTS {
+        let code = random_code();
+        let result: Result<RoomView, sqlx::Error> = sqlx::query_as(
+            "INSERT INTO rooms (name, owner_id, code) VALUES ($1, $2, $3)
+             RETURNING code, name, owner_id, created_at",
+        )
+        .bind(payload.name.trim())
+        .bind(auth.user_id)
+        .bind(&code)
+        .fetch_one(&pool)
+        .await;
 
-    Ok((StatusCode::CREATED, Json(room)))
+        match result {
+            Ok(room) => return Ok((StatusCode::CREATED, Json(room))),
+            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => continue,
+            Err(_) => return Err(ApiError::Internal),
+        }
+    }
+
+    Err(ApiError::Internal)
 }
 
-pub async fn get_room(_auth: AuthUser, State(pool): State<PgPool>, Path(room_id): Path<i64>)
+pub async fn get_room(_auth: AuthUser, State(pool): State<PgPool>, Path(code): Path<String>)
     -> Result<Json<RoomView>, ApiError>
 {
-    let room: RoomView = sqlx::query_as("SELECT id, name, owner_id, created_at FROM rooms WHERE id = $1")
-        .bind(room_id)
+    let room: RoomView = sqlx::query_as("SELECT code, name, owner_id, created_at FROM rooms WHERE code = $1")
+        .bind(&code)
         .fetch_optional(&pool)
         .await
         .map_err(|_| ApiError::Internal)?
@@ -99,11 +118,11 @@ pub async fn get_room(_auth: AuthUser, State(pool): State<PgPool>, Path(room_id)
     Ok(Json(room))
 }
 
-pub async fn delete_room(auth: AuthUser, State(pool): State<PgPool>, Path(room_id): Path<i64>)
+pub async fn delete_room(auth: AuthUser, State(pool): State<PgPool>, Path(code): Path<String>)
     -> Result<StatusCode, ApiError>
 {
-    let owner: Option<(i64,)> = sqlx::query_as("SELECT owner_id FROM rooms WHERE id = $1")
-        .bind(room_id)
+    let owner: Option<(i64,)> = sqlx::query_as("SELECT owner_id FROM rooms WHERE code = $1")
+        .bind(&code)
         .fetch_optional(&pool)
         .await
         .map_err(|_| ApiError::Internal)?;
@@ -113,8 +132,8 @@ pub async fn delete_room(auth: AuthUser, State(pool): State<PgPool>, Path(room_i
         return Err(ApiError::Forbidden("only the room owner can delete it".into()));
     }
 
-    sqlx::query("DELETE FROM rooms WHERE id = $1")
-        .bind(room_id)
+    sqlx::query("DELETE FROM rooms WHERE code = $1")
+        .bind(&code)
         .execute(&pool)
         .await
         .map_err(|_| ApiError::Internal)?;
@@ -125,7 +144,7 @@ pub async fn delete_room(auth: AuthUser, State(pool): State<PgPool>, Path(room_i
 pub async fn list_messages(
     _auth: AuthUser,
     State(pool): State<PgPool>,
-    Path(room_id): Path<i64>,
+    Path(code): Path<String>,
     Query(params): Query<ListMessagesParams>,
 )
     -> Result<Json<Vec<ChatMessageView>>, ApiError>
@@ -137,11 +156,12 @@ pub async fn list_messages(
                 u.id AS sender_id, u.username AS sender_username, u.avatar_url AS sender_avatar_url
          FROM messages m
          JOIN users u ON u.id = m.sender_id
-         WHERE m.room_id = $1 AND ($2::BIGINT IS NULL OR m.id < $2)
+         JOIN rooms r ON r.id = m.room_id
+         WHERE r.code = $1 AND ($2::BIGINT IS NULL OR m.id < $2)
          ORDER BY m.id DESC
          LIMIT $3",
     )
-    .bind(room_id)
+    .bind(&code)
     .bind(params.before)
     .bind(limit)
     .fetch_all(&pool)

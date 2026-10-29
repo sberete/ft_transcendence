@@ -56,7 +56,7 @@ impl RoomRegistry {
     // Cree l'entree en memoire si c'est le premier membre a rejoindre cette
     // room depuis le demarrage du serveur (name/owner_id ne servent que dans
     // ce cas : ils viennent d'une lecture DB faite juste avant par l'appelant).
-    pub fn join(&self, room_id: i64, name: &str, owner_id: i64, user: UserRef, tx: OutgoingTx)
+    pub fn join(&self, room_id: i64, code: &str, name: &str, owner_id: i64, user: UserRef, tx: OutgoingTx)
         -> JoinOutcome
     {
         let mut rooms = self.rooms.lock().unwrap();
@@ -73,7 +73,7 @@ impl RoomRegistry {
         let notify_others = room.members.values().map(|m| m.tx.clone()).collect();
         let members = room.members.values().map(|m| m.user.clone()).collect();
         let outcome = JoinOutcome {
-            room: RoomRef { id: room_id, name: room.name.clone(), owner_id: room.owner_id },
+            room: RoomRef { code: code.to_string(), name: room.name.clone(), owner_id: room.owner_id },
             members,
             media: room.media.clone(),
             playback: PlaybackRef { playing: room.playing, position: room.position, server_time: room.server_time },

@@ -127,14 +127,14 @@ export function createRoom(token, name) {
   })
 }
 
-export function getRoom(token, roomId) {
-  return request(`/rooms/${roomId}`, {
+export function getRoom(token, code) {
+  return request(`/rooms/${code}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
-export function deleteRoom(token, roomId) {
-  return request(`/rooms/${roomId}`, {
+export function deleteRoom(token, code) {
+  return request(`/rooms/${code}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -142,11 +142,11 @@ export function deleteRoom(token, roomId) {
 
 // Historique uniquement : les nouveaux messages arrivent par WebSocket
 // (evenement chat.message), pas par cette route. Plus recent en premier.
-export function listRoomMessages(token, roomId, before = null, limit = 50) {
+export function listRoomMessages(token, code, before = null, limit = 50) {
   const params = new URLSearchParams({ limit: String(limit) })
   if (before) params.set('before', String(before))
 
-  return request(`/rooms/${roomId}/messages?${params}`, {
+  return request(`/rooms/${code}/messages?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 }

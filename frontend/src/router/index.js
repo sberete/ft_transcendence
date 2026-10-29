@@ -36,7 +36,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/room/:id',
+      path: '/room/:code',
       component: () => import('../views/RoomView.vue'),
       meta: { requiresAuth: true },
     },

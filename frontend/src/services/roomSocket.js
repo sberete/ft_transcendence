@@ -20,7 +20,7 @@ export function createRoomSocket(token, self) {
   const error = ref('')
 
   let socket = null
-  let currentRoomId = null
+  let currentCode = null
   let reconnectDelay = RECONNECT_BASE_MS
   let reconnectTimer = null
   let manuallyClosed = false
@@ -45,7 +45,7 @@ export function createRoomSocket(token, self) {
         connected.value = true
         error.value = ''
         reconnectDelay = RECONNECT_BASE_MS
-        if (currentRoomId) send('room.join', { room_id: currentRoomId })
+        if (currentCode) send('room.join', { code: currentCode })
         break
       case 'room.state':
         room.value = msg.room
@@ -98,14 +98,14 @@ export function createRoomSocket(token, self) {
     }
   }
 
-  function joinRoom(roomId) {
-    currentRoomId = roomId
-    if (connected.value) send('room.join', { room_id: roomId })
+  function joinRoom(code) {
+    currentCode = code
+    if (connected.value) send('room.join', { code })
   }
 
   function leaveRoom() {
     send('room.leave')
-    currentRoomId = null
+    currentCode = null
     room.value = null
     members.value = []
     media.value = null

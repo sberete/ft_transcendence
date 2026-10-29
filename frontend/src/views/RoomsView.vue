@@ -17,7 +17,7 @@ async function handleCreate() {
   creating.value = true
   try {
     const room = await createRoom(token.value, name.value)
-    router.push(`/room/${room.id}`)
+    router.push(`/room/${room.code}`)
   } catch (err) {
     error.value = err.message
   } finally {
@@ -26,8 +26,11 @@ async function handleCreate() {
 }
 
 function handleJoin() {
-  const id = joinId.value.trim()
-  if (id) router.push(`/room/${id}`)
+  // Accepte aussi bien "123456" qu'un lien colle en entier
+  // (https://.../room/123456) : on ne garde que le code a la fin.
+  const input = joinId.value.trim()
+  const code = input.match(/(\d{6})\/?$/)?.[1]
+  if (code) router.push(`/room/${code}`)
 }
 </script>
 
@@ -52,11 +55,19 @@ function handleJoin() {
 
       <section class="panel">
         <h2>Rejoindre une salle</h2>
-        <p class="muted">Demandez l'identifiant de la salle à la personne qui l'a créée.</p>
+        <p class="muted">Demande le code à 6 chiffres à la personne qui a créé la salle (ou colle le lien qu'elle t'a envoyé).</p>
         <form class="form" @submit.prevent="handleJoin">
           <label class="field">
-            Identifiant de la salle
-            <input v-model="joinId" class="input" type="text" inputmode="numeric" required />
+            Code de la salle
+            <input
+              v-model="joinId"
+              class="input"
+              type="text"
+              inputmode="numeric"
+              placeholder="123456"
+              maxlength="64"
+              required
+            />
           </label>
           <button type="submit" class="btn btn-ghost">Rejoindre</button>
         </form>

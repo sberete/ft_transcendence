@@ -12,7 +12,9 @@ const router = useRouter()
 const { token } = useAuth()
 const { user, load: loadUser } = useCurrentUser()
 
-const roomId = computed(() => Number(route.params.id))
+// Code a 6 chiffres (string, jamais convertie en Number : un zero en tete
+// comme "012345" serait tronque par Number()).
+const roomCode = computed(() => String(route.params.code))
 const socket = createRoomSocket(token.value, user)
 const { connected, room, members, messages, error } = socket
 
@@ -21,7 +23,7 @@ const newMessage = ref('')
 const chatEl = ref(null)
 const copied = ref(false)
 
-const inviteLink = computed(() => `${window.location.origin}/room/${roomId.value}`)
+const inviteLink = computed(() => `${window.location.origin}/room/${roomCode.value}`)
 
 async function copyInviteLink() {
   try {
@@ -50,14 +52,14 @@ onMounted(async () => {
   if (!user.value) await loadUser()
 
   try {
-    const recent = await listRoomMessages(token.value, roomId.value)
+    const recent = await listRoomMessages(token.value, roomCode.value)
     history.value = recent.reverse()
   } catch {
     // L'historique est secondaire : si ca echoue, le chat live fonctionne quand meme.
   }
 
   socket.connect()
-  socket.joinRoom(roomId.value)
+  socket.joinRoom(roomCode.value)
 })
 
 onBeforeUnmount(() => {
@@ -85,7 +87,7 @@ function leaveToLobby() {
           <h1>{{ room?.name || 'Salle' }}</h1>
           <p class="muted">
             <span v-if="!connected">Connexion...</span>
-            <span v-else>{{ members.length }} participant{{ members.length > 1 ? 's' : '' }} · salle n°{{ roomId }}</span>
+            <span v-else>{{ members.length }} participant{{ members.length > 1 ? 's' : '' }} · code {{ roomCode }}</span>
           </p>
         </div>
         <div class="room-actions">

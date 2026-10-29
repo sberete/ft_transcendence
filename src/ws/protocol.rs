@@ -11,7 +11,7 @@ pub enum ClientMessage {
     #[serde(rename = "auth")]
     Auth { token: String },
     #[serde(rename = "room.join")]
-    RoomJoin { room_id: i64 },
+    RoomJoin { code: String },
     #[serde(rename = "room.leave")]
     RoomLeave,
     #[serde(rename = "chat.send")]
@@ -37,7 +37,7 @@ pub struct UserRef {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RoomRef {
-    pub id: i64,
+    pub code: String,
     pub name: String,
     pub owner_id: i64,
 }

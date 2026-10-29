@@ -125,8 +125,8 @@ async fn run_connection(stream: &mut SplitStream<WebSocket>, tx: &OutgoingTx, st
             ClientMessage::Auth { .. } => {
                 send(tx, &ServerMessage::error("bad_message", "already authenticated"));
             }
-            ClientMessage::RoomJoin { room_id } => {
-                handle_join(state, tx, &user, &mut current_room, room_id).await;
+            ClientMessage::RoomJoin { code } => {
+                handle_join(state, tx, &user, &mut current_room, code).await;
             }
             ClientMessage::RoomLeave => {
                 leave_current_room(state, tx, &user, &mut current_room).await;
@@ -185,23 +185,26 @@ async fn handle_join(
     tx: &OutgoingTx,
     user: &UserRef,
     current_room: &mut Option<(i64, i64)>,
-    room_id: i64,
+    code: String,
 )
 {
     leave_current_room(state, tx, user, current_room).await;
 
-    let room_row: Option<(String, i64)> = sqlx::query_as("SELECT name, owner_id FROM rooms WHERE id = $1")
-        .bind(room_id)
-        .fetch_optional(&state.pool)
-        .await
-        .unwrap_or(None);
+    // code -> id interne : le registre en memoire est indexe par l'id (jamais
+    // expose), seul le code voyage avec le client.
+    let room_row: Option<(i64, String, i64)> =
+        sqlx::query_as("SELECT id, name, owner_id FROM rooms WHERE code = $1")
+            .bind(&code)
+            .fetch_optional(&state.pool)
+            .await
+            .unwrap_or(None);
 
-    let Some((name, owner_id)) = room_row else {
+    let Some((room_id, name, owner_id)) = room_row else {
         send(tx, &ServerMessage::error("room_not_found", "this room does not exist"));
         return;
     };
 
-    let outcome = state.rooms.join(room_id, &name, owner_id, user.clone(), tx.clone());
+    let outcome = state.rooms.join(room_id, &code, &name, owner_id, user.clone(), tx.clone());
     *current_room = Some((room_id, owner_id));
 
     broadcast(&outcome.notify_others, &ServerMessage::RoomMemberJoined { user: user.clone() });
