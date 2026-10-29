@@ -236,6 +236,9 @@ function leaveToLobby() {
               :kind="currentStream.kind"
               :poster="mediaDetails.backdrop || mediaDetails.thumbnail"
             />
+            <div v-if="sync.needsGesture.value" class="gesture-overlay">
+              <button class="btn btn-primary" @click="sync.resume()">Rejoindre la lecture</button>
+            </div>
             <button v-if="isOwner" class="btn btn-ghost btn-sm change-video" @click="pickerOpen = true">
               Changer la vidéo
             </button>
@@ -353,6 +356,15 @@ function leaveToLobby() {
   right: 0.6rem;
   background: rgba(11, 11, 16, 0.75);
   backdrop-filter: blur(4px);
+}
+
+.gesture-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 11, 16, 0.6);
 }
 
 .picker {

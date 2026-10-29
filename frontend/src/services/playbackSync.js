@@ -3,6 +3,8 @@
 // en continu, seulement un point de reference (position + server_time) que
 // chaque client extrapole. Voir ce document pour le detail de l'algorithme.
 
+import { ref } from 'vue'
+
 const CORRECTION_INTERVAL_MS = 2000
 const PING_INTERVAL_MS = 30000
 const INITIAL_PING_COUNT = 5
@@ -22,6 +24,12 @@ export function createPlaybackSync(socket, videoRef) {
   let correctionTimer = null
   let pingTimer = null
   let attachedVideo = null
+  // Les navigateurs bloquent l'autoplay avec le son tant qu'il n'y a pas eu
+  // de vrai clic sur CETTE video precise : un clic ailleurs sur la page
+  // (chat, header...) ne compte pas. Quand la tentative automatique de
+  // video.play() echoue pour cette raison, on le signale pour que l'UI
+  // affiche un bouton "cliquer pour rejoindre la lecture".
+  const needsGesture = ref(false)
 
   function serverNow() {
     return Date.now() + clockOffsetMs
@@ -77,7 +85,9 @@ export function createPlaybackSync(socket, videoRef) {
     // L'etat lecture/pause doit matcher le serveur (ex: un autre membre a mis
     // en pause) avant meme de corriger la position.
     if (pb.playing && video.paused) {
-      withSuppression(() => video.play().catch(() => {}), 300)
+      withSuppression(() => {
+        video.play().then(() => { needsGesture.value = false }).catch(() => { needsGesture.value = true })
+      }, 300)
     } else if (!pb.playing && !video.paused) {
       withSuppression(() => video.pause(), 300)
     }
@@ -122,11 +132,28 @@ export function createPlaybackSync(socket, videoRef) {
   function attach(video) {
     if (attachedVideo === video) return
     detach()
+    needsGesture.value = false
     if (!video) return
     video.addEventListener('play', onPlay)
     video.addEventListener('pause', onPause)
     video.addEventListener('seeked', onSeeked)
     attachedVideo = video
+  }
+
+  // Appelee depuis un vrai gestionnaire de clic (bouton "rejoindre la
+  // lecture") : ca compte comme une interaction utilisateur directe sur CET
+  // element, ce que l'appel automatique dans correctDrift() n'est pas, donc
+  // le navigateur l'autorise. Se cale d'abord sur la position attendue (le
+  // temps est passe pendant que la lecture etait bloquee), sans renvoyer ca
+  // au serveur comme une nouvelle action : on rattrape, on ne decide rien.
+  function resume() {
+    const video = videoRef.value
+    if (!video) return
+    withSuppression(() => {
+      const expected = expectedPosition()
+      if (expected != null) video.currentTime = expected
+      video.play().then(() => { needsGesture.value = false }).catch(() => { needsGesture.value = true })
+    }, 500)
   }
 
   function detach() {
@@ -150,5 +177,5 @@ export function createPlaybackSync(socket, videoRef) {
     detach()
   }
 
-  return { attach, start, stop }
+  return { attach, start, stop, resume, needsGesture }
 }
