@@ -147,8 +147,9 @@ Work is organized as:
 - **Database**: PostgreSQL 16, accessed through [SQLx](https://github.com/launchbadge/sqlx) with hand-written SQL
   (`sqlx::query_as`, `#[derive(sqlx::FromRow)]`) and compile-time query
   checking — a deliberate choice over an ORM, for direct control over the
-  exact queries run. See "Modules" for the resulting gap on the ORM
-  module.
+  exact queries run. The "ORM for the database" module was dropped as a
+  result, rather than retrofitting one into already-stable, tested
+  queries for a single point; see "Modules" for its replacement.
 - **Frontend**: [Vue 3](https://vuejs.org) (Composition API, `<script setup>`) + [Vue Router](https://router.vuejs.org) 4 +
   [Vite](https://vite.dev). [hls.js](https://github.com/video-dev/hls.js) for HLS playback in browsers that don't support
   it natively.
@@ -248,14 +249,14 @@ this table is kept honest rather than aspirational.
 
 | Module | Category | Points | Status |
 |---|---|---|---|
-| Real-time features (WebSockets) | Web, Major | 2 | **In progress** — rooms, presence, chat and synchronized playback are all implemented and the protocol is verified end-to-end (owner-only video changes, play/pause/seek broadcasting, ping/pong); the client-side drift-correction logic itself hasn't been watched working in an actual browser with two real sessions yet |
+| Real-time features (WebSockets) | Web, Major | 2 | **Done** — rooms, presence, chat and synchronized playback all implemented, verified both end-to-end on the protocol and visually across two real browser sessions (clock sync, drift correction, ownership transfer on owner departure) |
 | Allow users to interact (chat, profile, friends) | Web, Major | 2 | **Done** |
 | Standard user management | User Management, Major | 2 | **Done** |
 | Recommendation system (ML) | Artificial Intelligence, Major | 2 | **Not started** |
 | File upload and management | Web, Minor | 1 | **In progress** — avatar upload works (type/size validated server-side); still missing a real progress indicator and a delete action |
 | Remote authentication (OAuth 2.0) | User Management, Minor | 1 | **Done** |
 | Notification system | Web, Minor | 1 | **Not started** |
-| ORM for the database | Web, Minor | 1 | **Not claimed** — SQLx is used deliberately instead (see "Technical Stack") |
+| Support for additional browsers | Accessibility, Minor | 1 | **In progress** — replaces the ORM module (dropped, see "Technical Stack"); Chrome, Brave and Safari have all been exercised manually during development, a systematic documented pass across browsers is still needed |
 | Advanced search | Web, Minor | 1 | **In progress** — search with a source filter works; sorting/pagination not yet added |
 | 2FA | User Management, Minor | 1 | **Not started** |
 
