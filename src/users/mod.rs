@@ -8,5 +8,5 @@ pub fn router() -> Router<PgPool>
 {
     Router::new()
         .route("/me", axum::routing::get(handlers::get_me).patch(handlers::update_me))
-        .route("/me/avatar", post(handlers::upload_avatar))
+        .route("/me/avatar", post(handlers::upload_avatar).delete(handlers::delete_avatar))
 }

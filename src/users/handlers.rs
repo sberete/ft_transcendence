@@ -90,6 +90,10 @@ pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multi
         .await
         .map_err(|_| ApiError::Internal)?;
 
+    // Recupere l'ancien avatar AVANT d'ecraser la colonne : une fois le
+    // nouveau enregistre, on n'a plus aucune trace de quel fichier nettoyer.
+    let previous_avatar_url = current_avatar_url(&pool, auth.user_id).await?;
+
     let avatar_url = format!("/uploads/avatars/{filename}");
     sqlx::query("UPDATE users SET avatar_url = $1 WHERE id = $2")
         .bind(&avatar_url)
@@ -97,6 +101,27 @@ pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multi
         .execute(&pool)
         .await
         .map_err(|_| ApiError::Internal)?;
+
+    if let Some(previous) = previous_avatar_url {
+        remove_avatar_file(&previous).await;
+    }
+
+    fetch_profile(&pool, auth.user_id).await.map(Json)
+}
+
+pub async fn delete_avatar(auth: AuthUser, State(pool): State<PgPool>) -> Result<Json<UserProfile>, ApiError>
+{
+    let previous_avatar_url = current_avatar_url(&pool, auth.user_id).await?;
+
+    sqlx::query("UPDATE users SET avatar_url = NULL WHERE id = $1")
+        .bind(auth.user_id)
+        .execute(&pool)
+        .await
+        .map_err(|_| ApiError::Internal)?;
+
+    if let Some(previous) = previous_avatar_url {
+        remove_avatar_file(&previous).await;
+    }
 
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
@@ -108,6 +133,29 @@ async fn fetch_profile(pool: &PgPool, user_id: i64) -> Result<UserProfile, ApiEr
         .fetch_one(pool)
         .await
         .map_err(|_| ApiError::Internal)
+}
+
+async fn current_avatar_url(pool: &PgPool, user_id: i64) -> Result<Option<String>, ApiError>
+{
+    let row: (Option<String>,) = sqlx::query_as("SELECT avatar_url FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|_| ApiError::Internal)?;
+    Ok(row.0)
+}
+
+// Best-effort : un avatar_url ne pointe jamais que vers un fichier qu'on a
+// nous-meme ecrit dans uploads/avatars/ (jamais une URL externe, voir le
+// manuel section Securite). Si la suppression echoue, on ne fait pas
+// echouer la requete pour autant - un fichier orphelin ne casse rien,
+// contrairement a une mise a jour de profil qui semblerait avoir rate.
+async fn remove_avatar_file(avatar_url: &str)
+{
+    let path = avatar_url.trim_start_matches('/');
+    if let Err(err) = tokio::fs::remove_file(path).await {
+        log::warn!("failed to remove old avatar file {path}: {err}");
+    }
 }
 
 fn random_filename_stem() -> String

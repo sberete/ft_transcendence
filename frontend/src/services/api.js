@@ -59,14 +59,49 @@ export function updateMe(token, username) {
   })
 }
 
-export function uploadAvatar(token, file) {
+// XMLHttpRequest plutot que fetch : c'est la seule API avec un vrai
+// evenement de progression d'upload, cross-navigateur (fetch n'expose la
+// progression de la requete elle-meme que via un ReadableStream en corps,
+// pas supporte partout). onProgress(percent) est appele a chaque evenement
+// avec une taille connue.
+export function uploadAvatar(token, file, onProgress) {
   const formData = new FormData()
   formData.append('file', file)
 
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${BASE_URL}/api/users/me/avatar`)
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    xhr.upload.onprogress = (event) => {
+      if (onProgress && event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100))
+      }
+    }
+
+    xhr.onload = () => {
+      let body = null
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : null
+      } catch {
+        // Reponse non-JSON : ne devrait pas arriver sur cette route.
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(body)
+      } else {
+        reject(new Error(body?.error || `Request failed with status ${xhr.status}`))
+      }
+    }
+    xhr.onerror = () => reject(new Error('Network error'))
+
+    xhr.send(formData)
+  })
+}
+
+export function deleteAvatar(token) {
   return request('/users/me/avatar', {
-    method: 'POST',
+    method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
-    body: formData,
   })
 }
 

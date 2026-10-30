@@ -253,7 +253,7 @@ this table is kept honest rather than aspirational.
 | Allow users to interact (chat, profile, friends) | Web, Major | 2 | **Done** |
 | Standard user management | User Management, Major | 2 | **Done** |
 | Recommendation system (ML) | Artificial Intelligence, Major | 2 | **Not started** |
-| File upload and management | Web, Minor | 1 | **In progress** — avatar upload works (type/size validated server-side); still missing a real progress indicator and a delete action |
+| File upload and management | Web, Minor | 1 | **Done** — avatar upload (type/size validated server-side by real file signature), a live progress indicator during upload, a delete action, and the previous file is cleaned up from disk on both replace and delete |
 | Remote authentication (OAuth 2.0) | User Management, Minor | 1 | **Done** |
 | Notification system | Web, Minor | 1 | **Not started** |
 | Support for additional browsers | Accessibility, Minor | 1 | **In progress** — replaces the ORM module (dropped, see "Technical Stack"); Chrome, Brave and Safari have all been exercised manually during development, a systematic documented pass across browsers is still needed |
