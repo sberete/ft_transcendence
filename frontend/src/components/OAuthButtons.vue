@@ -19,7 +19,17 @@ let channel = null
 
 onMounted(() => {
   // La popup, une fois revenue sur notre site, annonce le resultat ici.
-  channel = new BroadcastChannel(OAUTH_CHANNEL)
+  // BroadcastChannel est supporte par tous les navigateurs courants
+  // (Safari depuis la 15.4), mais un navigateur plus ancien ou atypique
+  // leverait une exception synchrone ici - sans ce try/catch, ca cassait
+  // le montage du composant entier plutot que de degrader proprement.
+  try {
+    channel = new BroadcastChannel(OAUTH_CHANNEL)
+  } catch {
+    channel = null
+  }
+  if (!channel) return
+
   channel.onmessage = (event) => {
     if (event.data?.type !== 'result') return
     // Accuse de reception : la popup sait qu'elle peut se fermer.
@@ -38,6 +48,15 @@ onBeforeUnmount(() => channel?.close())
 
 function openPopup(provider) {
   error.value = ''
+
+  // Sans canal pour recevoir le resultat, ouvrir une popup ne servirait a
+  // rien (elle n'aurait aucun moyen de nous le communiquer) : direct en
+  // pleine page, comme si la popup etait bloquee.
+  if (!channel) {
+    window.location.href = oauthStartUrl(provider)
+    return
+  }
+
   const left = window.screenX + Math.max(0, (window.outerWidth - POPUP_WIDTH) / 2)
   const top = window.screenY + Math.max(0, (window.outerHeight - POPUP_HEIGHT) / 2)
   const popup = window.open(

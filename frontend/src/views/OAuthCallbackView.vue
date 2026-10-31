@@ -28,7 +28,20 @@ onMounted(() => {
   // Le token quitte la barre d'adresse et l'historique tout de suite.
   window.history.replaceState(null, '', '/oauth/callback')
 
-  channel = new BroadcastChannel(OAUTH_CHANNEL)
+  // Meme garde-fou que dans OAuthButtons.vue : un navigateur sans
+  // BroadcastChannel ne doit pas planter ici, juste se comporter comme
+  // si personne ne repondait (pleine page).
+  try {
+    channel = new BroadcastChannel(OAUTH_CHANNEL)
+  } catch {
+    channel = null
+  }
+
+  if (!channel) {
+    finishAlone(result)
+    return
+  }
+
   channel.onmessage = (event) => {
     if (event.data?.type !== 'ack') return
     clearTimeout(timer)
