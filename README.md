@@ -257,7 +257,7 @@ this table is kept honest rather than aspirational.
 | Remote authentication (OAuth 2.0) | User Management, Minor | 1 | **Done** |
 | Notification system | Web, Minor | 1 | **Not started** |
 | Support for additional browsers | Accessibility, Minor | 1 | **In progress** — replaces the ORM module (dropped, see "Technical Stack"); Chrome, Brave and Safari have all been exercised manually during development, a systematic documented pass across browsers is still needed |
-| Advanced search | Web, Minor | 1 | **In progress** — search with a source filter works; sorting/pagination not yet added |
+| Advanced search | Web, Minor | 1 | **Done** — filter by source, sort by title/year/duration, and client-side pagination (12 results per page) on the search page |
 | 2FA | User Management, Minor | 1 | **Not started** |
 
 This currently totals less than 14 points if only "Done" rows are
