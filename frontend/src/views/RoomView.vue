@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import VideoPlayer from '../components/VideoPlayer.vue'
 import { BASE_URL, getMediaDetails, getRoom, listRoomMessages, searchMedia } from '../services/api'
@@ -9,6 +10,7 @@ import { PROVIDER_LABELS, avatarSrc } from '../services/format'
 import { createPlaybackSync } from '../services/playbackSync'
 import { createRoomSocket } from '../services/roomSocket'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { token } = useAuth()
@@ -168,25 +170,25 @@ function leaveToLobby() {
       <div v-if="checking" class="skeleton" style="height: 320px"></div>
 
       <div v-else-if="notFound" class="panel not-found">
-        <h1>Salle introuvable</h1>
-        <p class="muted">Le code « {{ roomCode }} » ne correspond à aucune salle — elle a peut-être été fermée.</p>
-        <router-link to="/rooms" class="btn btn-primary">Retour aux salles</router-link>
+        <h1>{{ t('room.notFoundTitle') }}</h1>
+        <p class="muted">{{ t('room.notFoundText', { code: roomCode }) }}</p>
+        <router-link to="/rooms" class="btn btn-primary">{{ t('room.backToRooms') }}</router-link>
       </div>
 
       <template v-else>
         <div class="room-head">
           <div>
-            <h1>{{ room?.name || 'Salle' }}</h1>
+            <h1>{{ room?.name || t('room.fallbackName') }}</h1>
             <p class="muted">
-              <span v-if="!connected">Connexion...</span>
-              <span v-else>{{ members.length }} participant{{ members.length > 1 ? 's' : '' }} · code {{ roomCode }}</span>
+              <span v-if="!connected">{{ t('room.connecting') }}</span>
+              <span v-else>{{ t('room.participantsWithCode', { count: members.length, code: roomCode }, members.length) }}</span>
             </p>
           </div>
           <div class="room-actions">
             <button class="btn btn-ghost btn-sm" @click="copyInviteLink">
-              {{ copied ? 'Lien copié !' : 'Copier le lien d\'invitation' }}
+              {{ copied ? t('room.linkCopied') : t('room.copyLink') }}
             </button>
-            <button class="btn btn-ghost btn-sm" @click="leaveToLobby">Quitter</button>
+            <button class="btn btn-ghost btn-sm" @click="leaveToLobby">{{ t('room.leave') }}</button>
           </div>
         </div>
 
@@ -196,19 +198,19 @@ function leaveToLobby() {
         <div class="video-slot panel">
           <div v-if="pickerOpen" class="picker">
             <div class="picker-head">
-              <h2>Choisir une vidéo</h2>
-              <button class="btn btn-ghost btn-sm" @click="pickerOpen = false">Annuler</button>
+              <h2>{{ t('room.picker.title') }}</h2>
+              <button class="btn btn-ghost btn-sm" @click="pickerOpen = false">{{ t('room.picker.cancel') }}</button>
             </div>
             <form class="picker-form" @submit.prevent="handlePickerSearch">
               <input
                 v-model="pickerQuery"
                 class="input"
                 type="text"
-                placeholder="Rechercher un film, une vidéo..."
+                :placeholder="t('room.picker.searchPlaceholder')"
                 maxlength="100"
               />
               <button type="submit" class="btn btn-primary btn-sm" :disabled="pickerSearching">
-                {{ pickerSearching ? 'Recherche...' : 'Rechercher' }}
+                {{ pickerSearching ? t('room.picker.searching') : t('room.picker.search') }}
               </button>
             </form>
             <ul v-if="pickerResults.length" class="picker-results">
@@ -222,12 +224,12 @@ function leaveToLobby() {
                 </button>
               </li>
             </ul>
-            <p v-else-if="!pickerSearching && pickerQuery" class="muted">Aucun résultat.</p>
+            <p v-else-if="!pickerSearching && pickerQuery" class="muted">{{ t('room.picker.noResults') }}</p>
           </div>
 
           <template v-else-if="media">
             <div v-if="mediaError" class="video-message">
-              <p class="msg-error">Impossible de charger cette vidéo.</p>
+              <p class="msg-error">{{ t('room.videoLoadError') }}</p>
               <p class="muted">{{ mediaError }}</p>
             </div>
             <div v-else-if="!currentStream" class="skeleton" style="width: 100%; height: 100%"></div>
@@ -239,18 +241,18 @@ function leaveToLobby() {
               @video-ready="onVideoReady"
             />
             <div v-if="sync.needsGesture.value" class="gesture-overlay">
-              <button class="btn btn-primary" @click="sync.resume()">Rejoindre la vidéo en cours</button>
+              <button class="btn btn-primary" @click="sync.resume()">{{ t('room.joinInProgress') }}</button>
             </div>
             <button v-if="isOwner" class="btn btn-ghost btn-sm change-video" @click="pickerOpen = true">
-              Changer la vidéo
+              {{ t('room.changeVideo') }}
             </button>
           </template>
 
           <div v-else class="video-message">
-            <p class="muted" v-if="isOwner">Aucune vidéo choisie pour l'instant.</p>
-            <p class="muted" v-else>En attente que le propriétaire choisisse une vidéo.</p>
+            <p class="muted" v-if="isOwner">{{ t('room.noVideoOwner') }}</p>
+            <p class="muted" v-else>{{ t('room.noVideoGuest') }}</p>
             <button v-if="isOwner" class="btn btn-primary btn-sm" @click="pickerOpen = true">
-              Choisir une vidéo
+              {{ t('room.chooseVideo') }}
             </button>
           </div>
         </div>
@@ -264,7 +266,7 @@ function leaveToLobby() {
           </div>
 
           <div ref="chatEl" class="messages">
-            <p v-if="allMessages.length === 0" class="muted empty">Aucun message pour l'instant.</p>
+            <p v-if="allMessages.length === 0" class="muted empty">{{ t('room.noMessages') }}</p>
             <p v-for="msg in allMessages" :key="msg.id" class="message">
               <strong>{{ msg.sender.username }}</strong> {{ msg.content }}
             </p>
@@ -276,10 +278,10 @@ function leaveToLobby() {
               class="input"
               type="text"
               maxlength="500"
-              placeholder="Écrire un message..."
+              :placeholder="t('room.composerPlaceholder')"
               :disabled="!connected"
             />
-            <button type="submit" class="btn btn-primary btn-sm" :disabled="!connected">Envoyer</button>
+            <button type="submit" class="btn btn-primary btn-sm" :disabled="!connected">{{ t('room.send') }}</button>
           </form>
         </aside>
         </div>

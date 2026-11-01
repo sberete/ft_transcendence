@@ -258,7 +258,7 @@ this table is kept honest rather than aspirational.
 | Notification system | Web, Minor | 1 | **Done** — persistent notifications (friend requests/accepts/removals, a friend starting a session, room ownership transfer), surfaced via a navbar bell with an unread count, fetched by polling (the WebSocket connection is scoped to a room, not global to the app) |
 | Support for additional browsers | Accessibility, Minor | 1 | **In progress** — replaces the ORM module (dropped, see "Technical Stack"). A latent crash on browsers without `BroadcastChannel` support was fixed in the OAuth popup flow. See `docs/browser-testing.md` for the test plan; the systematic pass itself (Firefox and Safari in particular) is still to be run |
 | Advanced search | Web, Minor | 1 | **Done** — filter by source, sort by title/year/duration, and client-side pagination (12 results per page) on the search page |
-| 2FA | User Management, Minor | 1 | **Not started** |
+| Support for multiple languages | Accessibility, Minor | 1 | **Done** — French (default) and English, via vue-i18n; a switcher in the navbar, the choice persisted in `localStorage`, and the `lang` attribute kept in sync. Covers the whole app including both legal pages, not just a partial pass. Replaces 2FA (dropped as a module choice) |
 
 This currently totals less than 14 points if only "Done" rows are
 counted; the remaining ones are being worked on. No bonus module is

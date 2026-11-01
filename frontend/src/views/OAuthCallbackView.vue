@@ -1,9 +1,12 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AuthCard from '../components/AuthCard.vue'
 import { useAuth } from '../services/auth'
 import { OAUTH_CHANNEL, isSessionToken, oauthErrorCode } from '../services/oauth'
+
+const { t } = useI18n()
 
 // Le backend renvoie ici apres une connexion Google/GitHub :
 //   succes : /oauth/callback#token=...     echec : /oauth/callback?error=...
@@ -71,6 +74,6 @@ function finishAlone(result) {
 
 <template>
   <!-- Si le navigateur refuse window.close(), on le dit a l'utilisateur. -->
-  <AuthCard v-if="done" title="C'est fait" subtitle="Vous pouvez fermer cette fenêtre." />
-  <AuthCard v-else title="Connexion en cours…" subtitle="Un instant." />
+  <AuthCard v-if="done" :title="t('oauthCallback.doneTitle')" :subtitle="t('oauthCallback.doneSubtitle')" />
+  <AuthCard v-else :title="t('oauthCallback.pendingTitle')" :subtitle="t('oauthCallback.pendingSubtitle')" />
 </template>

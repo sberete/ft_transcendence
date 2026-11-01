@@ -1,11 +1,13 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import VideoPlayer from '../components/VideoPlayer.vue'
 import { getMediaDetails } from '../services/api'
 import { useAuth } from '../services/auth'
 import { PROVIDER_LABELS, formatDuration, htmlToText } from '../services/format'
 
+const { t } = useI18n()
 const route = useRoute()
 const { token } = useAuth()
 
@@ -43,9 +45,9 @@ watch(
     <div class="player-wrap">
       <div v-if="loading" class="skeleton player-skeleton"></div>
       <div v-else-if="error" class="player-error">
-        <p>Impossible de charger cette vidéo.</p>
+        <p>{{ t('watch.loadError') }}</p>
         <p class="muted">{{ error }}</p>
-        <router-link to="/" class="btn btn-ghost">Retour à l'accueil</router-link>
+        <router-link to="/" class="btn btn-ghost">{{ t('watch.backHome') }}</router-link>
       </div>
       <VideoPlayer
         v-else-if="currentStream"
@@ -66,7 +68,7 @@ watch(
           </p>
         </div>
 
-        <div v-if="media.streams.length > 1" class="qualities" role="group" aria-label="Qualité">
+        <div v-if="media.streams.length > 1" class="qualities" role="group" :aria-label="t('watch.qualityAria')">
           <button
             v-for="stream in media.streams"
             :key="stream.url"
@@ -83,7 +85,7 @@ watch(
         <!-- Texte brut uniquement (voir htmlToText) : jamais de v-html sur du contenu externe. -->
         <p :class="{ clamped: !expanded }">{{ description }}</p>
         <button v-if="description.length > 280" class="toggle" @click="expanded = !expanded">
-          {{ expanded ? 'Voir moins' : 'Voir plus' }}
+          {{ expanded ? t('watch.showLess') : t('watch.showMore') }}
         </button>
       </div>
     </section>

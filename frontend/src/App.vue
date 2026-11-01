@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const bare = computed(() => route.meta.bare)
 </script>
@@ -11,10 +13,10 @@ const bare = computed(() => route.meta.bare)
   <AppHeader v-if="!bare" />
   <router-view />
   <footer v-if="!bare" class="footer">
-    <p>SyncWatch · projet pédagogique · contenus du domaine public et sous licence libre</p>
+    <p>{{ t('footer.tagline') }}</p>
     <nav class="footer-links">
-      <router-link to="/privacy">Politique de confidentialité</router-link>
-      <router-link to="/terms">Conditions générales d'utilisation</router-link>
+      <router-link to="/privacy">{{ t('footer.privacy') }}</router-link>
+      <router-link to="/terms">{{ t('footer.terms') }}</router-link>
     </nav>
   </footer>
 </template>

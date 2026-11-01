@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
   BASE_URL,
@@ -11,6 +12,7 @@ import {
 } from '../services/api'
 import { useAuth } from '../services/auth'
 
+const { t } = useI18n()
 const router = useRouter()
 const { token, clearToken } = useAuth()
 
@@ -45,7 +47,7 @@ async function handleSendRequest() {
   success.value = ''
   try {
     await sendFriendRequest(token.value, newUsername.value)
-    success.value = 'Demande envoyée.'
+    success.value = t('friends.successSent')
     newUsername.value = ''
   } catch (err) {
     error.value = err.message
@@ -88,14 +90,14 @@ function avatarSrc(url) {
 <template>
   <main class="page">
     <div class="container">
-      <h1>Mes amis</h1>
+      <h1>{{ t('friends.title') }}</h1>
 
       <form class="panel add" @submit.prevent="handleSendRequest">
         <label class="field">
-          Ajouter un ami
+          {{ t('friends.addLabel') }}
           <div class="add-row">
-            <input v-model="newUsername" class="input" type="text" placeholder="Nom d'utilisateur" required />
-            <button type="submit" class="btn btn-primary">Envoyer</button>
+            <input v-model="newUsername" class="input" type="text" :placeholder="t('friends.usernamePlaceholder')" required />
+            <button type="submit" class="btn btn-primary">{{ t('friends.send') }}</button>
           </div>
         </label>
         <p v-if="error" class="msg-error">{{ error }}</p>
@@ -106,20 +108,20 @@ function avatarSrc(url) {
 
       <template v-else>
         <section v-if="requests.length > 0">
-          <h2>Demandes reçues <span class="count">{{ requests.length }}</span></h2>
+          <h2>{{ t('friends.requestsReceived') }} <span class="count">{{ requests.length }}</span></h2>
           <ul class="list">
             <li v-for="req in requests" :key="req.id" class="panel person">
               <img :src="avatarSrc(req.avatar_url)" alt="" class="avatar" />
               <span class="name">{{ req.username }}</span>
-              <button class="btn btn-primary btn-sm" @click="handleAccept(req.id)">Accepter</button>
-              <button class="btn btn-ghost btn-sm" @click="handleDecline(req.id)">Refuser</button>
+              <button class="btn btn-primary btn-sm" @click="handleAccept(req.id)">{{ t('friends.accept') }}</button>
+              <button class="btn btn-ghost btn-sm" @click="handleDecline(req.id)">{{ t('friends.decline') }}</button>
             </li>
           </ul>
         </section>
 
         <section>
-          <h2>Amis <span class="count">{{ friends.length }}</span></h2>
-          <p v-if="friends.length === 0" class="muted">Aucun ami pour l'instant. Ajoutez-en un avec son nom d'utilisateur.</p>
+          <h2>{{ t('friends.friendsHeading') }} <span class="count">{{ friends.length }}</span></h2>
+          <p v-if="friends.length === 0" class="muted">{{ t('friends.noFriends') }}</p>
           <ul v-else class="list">
             <li v-for="friend in friends" :key="friend.id" class="panel person">
               <div class="avatar-wrap">
@@ -128,9 +130,9 @@ function avatarSrc(url) {
               </div>
               <div class="name">
                 {{ friend.username }}
-                <span class="status">{{ friend.online ? 'En ligne' : 'Hors ligne' }}</span>
+                <span class="status">{{ friend.online ? t('friends.online') : t('friends.offline') }}</span>
               </div>
-              <button class="btn btn-danger btn-sm" @click="handleRemoveFriend(friend.id)">Retirer</button>
+              <button class="btn btn-danger btn-sm" @click="handleRemoveFriend(friend.id)">{{ t('friends.remove') }}</button>
             </li>
           </ul>
         </section>

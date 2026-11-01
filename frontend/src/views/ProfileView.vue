@@ -1,11 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { BASE_URL, deleteAvatar, getMe, updateMe, uploadAvatar } from '../services/api'
 import { useAuth } from '../services/auth'
 import { useCurrentUser } from '../services/currentUser'
 import { avatarSrc } from '../services/format'
 
+const { t } = useI18n()
 const router = useRouter()
 const { token, clearToken } = useAuth()
 const { setUser } = useCurrentUser()
@@ -41,7 +43,7 @@ async function handleUpdateUsername() {
   success.value = ''
   try {
     applyProfile(await updateMe(token.value, username.value))
-    success.value = 'Profil mis à jour.'
+    success.value = t('profile.successProfile')
   } catch (err) {
     error.value = err.message
   }
@@ -63,7 +65,7 @@ async function handleAvatarChange(event) {
     applyProfile(await uploadAvatar(token.value, file, (percent) => {
       uploadProgress.value = percent
     }))
-    success.value = 'Avatar mis à jour.'
+    success.value = t('profile.successAvatar')
   } catch (err) {
     error.value = err.message
   } finally {
@@ -77,7 +79,7 @@ async function handleAvatarDelete() {
   deletingAvatar.value = true
   try {
     applyProfile(await deleteAvatar(token.value))
-    success.value = 'Avatar supprimé.'
+    success.value = t('profile.successAvatarDeleted')
   } catch (err) {
     error.value = err.message
   } finally {
@@ -89,7 +91,7 @@ async function handleAvatarDelete() {
 <template>
   <main class="page">
     <div class="container">
-      <h1>Mon profil</h1>
+      <h1>{{ t('profile.title') }}</h1>
 
       <div v-if="profile" class="panel profile">
         <div class="avatar-col">
@@ -102,7 +104,7 @@ async function handleAvatarDelete() {
           </div>
           <div class="avatar-actions">
             <label class="btn btn-ghost btn-sm" :class="{ 'btn-disabled': uploading }">
-              Changer d'avatar
+              {{ t('profile.changeAvatar') }}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
@@ -118,23 +120,23 @@ async function handleAvatarDelete() {
               :disabled="deletingAvatar"
               @click="handleAvatarDelete"
             >
-              {{ deletingAvatar ? 'Suppression...' : 'Supprimer' }}
+              {{ deletingAvatar ? t('profile.deleting') : t('profile.delete') }}
             </button>
           </div>
         </div>
 
         <form class="fields" @submit.prevent="handleUpdateUsername">
           <label class="field">
-            Nom d'utilisateur
+            {{ t('profile.username') }}
             <input v-model="username" class="input" type="text" maxlength="32" required />
           </label>
           <label class="field">
-            Email
+            {{ t('profile.email') }}
             <input :value="profile.email" class="input" type="email" disabled />
           </label>
           <p v-if="error" class="msg-error">{{ error }}</p>
           <p v-if="success" class="msg-success">{{ success }}</p>
-          <button type="submit" class="btn btn-primary">Enregistrer</button>
+          <button type="submit" class="btn btn-primary">{{ t('profile.save') }}</button>
         </form>
       </div>
 

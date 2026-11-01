@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useNotifications } from '../services/notifications'
 
@@ -8,14 +9,7 @@ import { useNotifications } from '../services/notifications'
 // temps reel. Voir idea.txt / docs pour la decision.
 const POLL_MS = 20000
 
-const LABELS = {
-  friend_request: (n) => `${n.payload.from_username} vous a envoyé une demande d'ami`,
-  friend_accepted: (n) => `${n.payload.from_username} a accepté votre demande d'ami`,
-  friend_removed: (n) => `${n.payload.from_username} vous a retiré de ses amis`,
-  room_started: (n) => `${n.payload.from_username} a lancé une session : « ${n.payload.room_name} »`,
-  room_ownership_transferred: (n) => `Vous êtes maintenant propriétaire du salon « ${n.payload.room_name} »`,
-}
-
+const { t } = useI18n()
 const router = useRouter()
 const { items, unreadCount, load, markRead, markAllRead } = useNotifications()
 
@@ -24,17 +18,21 @@ const panel = ref(null)
 let pollTimer = null
 
 function describe(n) {
-  return LABELS[n.kind]?.(n) ?? n.kind
+  return t(`notifications.kinds.${n.kind}`, {
+    username: n.payload.from_username,
+    roomName: n.payload.room_name,
+  })
 }
 
 function timeAgo(iso) {
   const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
-  if (diffSec < 60) return "à l'instant"
+  if (diffSec < 60) return t('notifications.timeAgo.now')
   const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `il y a ${diffMin} min`
+  if (diffMin < 60) return t('notifications.timeAgo.minutes', { count: diffMin }, diffMin)
   const diffH = Math.floor(diffMin / 60)
-  if (diffH < 24) return `il y a ${diffH} h`
-  return `il y a ${Math.floor(diffH / 24)} j`
+  if (diffH < 24) return t('notifications.timeAgo.hours', { count: diffH }, diffH)
+  const diffD = Math.floor(diffH / 24)
+  return t('notifications.timeAgo.days', { count: diffD }, diffD)
 }
 
 async function handleClick(n) {
@@ -67,7 +65,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="panel" class="notif">
-    <button class="bell-btn" :aria-expanded="open" aria-label="Notifications" @click="open = !open">
+    <button class="bell-btn" :aria-expanded="open" :aria-label="t('notifications.aria')" @click="open = !open">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
           d="M12 2a6 6 0 0 0-6 6v3.2c0 .9-.32 1.78-.9 2.47L4 15.5h16l-1.1-1.83a4 4 0 0 1-.9-2.47V8a6 6 0 0 0-6-6z"
@@ -79,10 +77,10 @@ onBeforeUnmount(() => {
 
     <div v-if="open" class="dropdown">
       <div class="dropdown-head">
-        <span>Notifications</span>
-        <button v-if="unreadCount > 0" class="mark-all" @click="markAllRead">Tout marquer lu</button>
+        <span>{{ t('notifications.title') }}</span>
+        <button v-if="unreadCount > 0" class="mark-all" @click="markAllRead">{{ t('notifications.markAllRead') }}</button>
       </div>
-      <p v-if="items.length === 0" class="empty">Rien de nouveau.</p>
+      <p v-if="items.length === 0" class="empty">{{ t('notifications.empty') }}</p>
       <ul v-else class="list">
         <li v-for="n in items" :key="n.id" :class="{ unread: !n.read_at }" @click="handleClick(n)">
           <p>{{ describe(n) }}</p>

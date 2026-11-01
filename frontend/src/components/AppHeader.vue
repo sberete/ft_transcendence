@@ -1,12 +1,15 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { BASE_URL, logout as apiLogout } from '../services/api'
 import { useAuth } from '../services/auth'
 import { useCurrentUser } from '../services/currentUser'
 import { avatarSrc } from '../services/format'
+import LocaleSwitcher from './LocaleSwitcher.vue'
 import NotificationBell from './NotificationBell.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { token, clearToken } = useAuth()
@@ -64,44 +67,46 @@ async function handleLogout() {
 
 <template>
   <header class="header" :class="{ solid: scrolled || route.path !== '/' }">
-    <router-link to="/" class="logo" aria-label="SyncWatch, accueil">
+    <router-link to="/" class="logo" :aria-label="t('nav.homeAria')">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
       <span>SyncWatch</span>
     </router-link>
 
     <nav v-if="token" class="nav">
-      <router-link to="/" exact-active-class="active">Accueil</router-link>
-      <router-link to="/friends" active-class="active">Amis</router-link>
-      <router-link to="/rooms" active-class="active">Salles</router-link>
+      <router-link to="/" exact-active-class="active">{{ t('nav.home') }}</router-link>
+      <router-link to="/friends" active-class="active">{{ t('nav.friends') }}</router-link>
+      <router-link to="/rooms" active-class="active">{{ t('nav.rooms') }}</router-link>
     </nav>
 
     <div class="spacer"></div>
+
+    <LocaleSwitcher />
 
     <form v-if="token" class="search" role="search" @submit.prevent="handleSearch">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
         <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
       </svg>
-      <input v-model="query" type="search" placeholder="Rechercher un film, une vidéo..." maxlength="100" aria-label="Rechercher" />
+      <input v-model="query" type="search" :placeholder="t('nav.searchPlaceholder')" maxlength="100" :aria-label="t('nav.searchAria')" />
     </form>
 
     <NotificationBell v-if="token" />
 
     <div v-if="token" ref="menu" class="account">
-      <button class="avatar-btn" :aria-expanded="menuOpen" aria-label="Menu du compte" @click="menuOpen = !menuOpen">
+      <button class="avatar-btn" :aria-expanded="menuOpen" :aria-label="t('nav.accountMenuAria')" @click="menuOpen = !menuOpen">
         <img :src="avatarSrc(BASE_URL, user?.avatar_url)" alt="" />
       </button>
       <div v-if="menuOpen" class="dropdown">
         <p v-if="user" class="dropdown-user">{{ user.username }}</p>
-        <router-link to="/profile" @click="menuOpen = false">Mon profil</router-link>
-        <router-link to="/friends" @click="menuOpen = false">Mes amis</router-link>
-        <button @click="handleLogout">Se déconnecter</button>
+        <router-link to="/profile" @click="menuOpen = false">{{ t('nav.myProfile') }}</router-link>
+        <router-link to="/friends" @click="menuOpen = false">{{ t('nav.myFriends') }}</router-link>
+        <button @click="handleLogout">{{ t('nav.logout') }}</button>
       </div>
     </div>
 
     <template v-else>
-      <router-link to="/login" class="btn btn-ghost btn-sm">Connexion</router-link>
-      <router-link to="/signup" class="btn btn-primary btn-sm">S'inscrire</router-link>
+      <router-link to="/login" class="btn btn-ghost btn-sm">{{ t('nav.login') }}</router-link>
+      <router-link to="/signup" class="btn btn-primary btn-sm">{{ t('nav.signup') }}</router-link>
     </template>
   </header>
 </template>

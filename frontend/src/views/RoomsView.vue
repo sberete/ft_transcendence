@@ -1,9 +1,11 @@
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { createRoom } from '../services/api'
 import { useAuth } from '../services/auth'
 
+const { t } = useI18n()
 const router = useRouter()
 const { token } = useAuth()
 
@@ -37,39 +39,39 @@ function handleJoin() {
 <template>
   <main class="page">
     <div class="container">
-      <h1>Salles</h1>
-      <p class="muted intro">Regardez une vidéo en même temps que vos amis, avec le chat et la lecture synchronisés.</p>
+      <h1>{{ t('rooms.title') }}</h1>
+      <p class="muted intro">{{ t('rooms.intro') }}</p>
 
       <section class="panel">
-        <h2>Créer une salle</h2>
+        <h2>{{ t('rooms.create.title') }}</h2>
         <form class="form" @submit.prevent="handleCreate">
           <label class="field">
-            Nom de la salle
-            <input v-model="name" class="input" type="text" maxlength="64" placeholder="Soirée film" required />
+            {{ t('rooms.create.nameLabel') }}
+            <input v-model="name" class="input" type="text" maxlength="64" :placeholder="t('rooms.create.namePlaceholder')" required />
           </label>
           <button type="submit" class="btn btn-primary" :disabled="creating">
-            {{ creating ? 'Création...' : 'Créer' }}
+            {{ creating ? t('rooms.create.submitting') : t('rooms.create.submit') }}
           </button>
         </form>
       </section>
 
       <section class="panel">
-        <h2>Rejoindre une salle</h2>
-        <p class="muted">Demande le code à 6 chiffres à la personne qui a créé la salle (ou colle le lien qu'elle t'a envoyé).</p>
+        <h2>{{ t('rooms.join.title') }}</h2>
+        <p class="muted">{{ t('rooms.join.hint') }}</p>
         <form class="form" @submit.prevent="handleJoin">
           <label class="field">
-            Code de la salle
+            {{ t('rooms.join.codeLabel') }}
             <input
               v-model="joinId"
               class="input"
               type="text"
               inputmode="numeric"
-              placeholder="123456"
+              :placeholder="t('rooms.join.codePlaceholder')"
               maxlength="64"
               required
             />
           </label>
-          <button type="submit" class="btn btn-ghost">Rejoindre</button>
+          <button type="submit" class="btn btn-ghost">{{ t('rooms.join.submit') }}</button>
         </form>
       </section>
 

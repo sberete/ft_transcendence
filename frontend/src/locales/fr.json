@@ -1,0 +1,310 @@
+{
+  "nav": {
+    "homeAria": "SyncWatch, accueil",
+    "home": "Accueil",
+    "friends": "Amis",
+    "rooms": "Salles",
+    "searchPlaceholder": "Rechercher un film, une vidéo...",
+    "searchAria": "Rechercher",
+    "accountMenuAria": "Menu du compte",
+    "myProfile": "Mon profil",
+    "myFriends": "Mes amis",
+    "logout": "Se déconnecter",
+    "login": "Connexion",
+    "signup": "S'inscrire",
+    "languageSwitcher": "Changer de langue"
+  },
+  "auth": {
+    "login": {
+      "title": "Connexion",
+      "subtitle": "Content de vous revoir.",
+      "identifier": "Email ou nom d'utilisateur",
+      "password": "Mot de passe",
+      "submit": "Se connecter",
+      "submitting": "Connexion...",
+      "noAccount": "Pas de compte ?",
+      "signupLink": "S'inscrire"
+    },
+    "signup": {
+      "title": "Créer un compte",
+      "subtitle": "Gratuit, et ça prend 10 secondes.",
+      "username": "Nom d'utilisateur",
+      "email": "Email",
+      "password": "Mot de passe",
+      "passwordHint": "8 caractères minimum",
+      "submit": "S'inscrire",
+      "submitting": "Création...",
+      "haveAccount": "Déjà un compte ?",
+      "loginLink": "Se connecter"
+    }
+  },
+  "oauth": {
+    "divider": "ou",
+    "continueWith": "Continuer avec {provider}",
+    "errors": {
+      "oauth": "La connexion avec ce service a échoué. Réessayez.",
+      "oauth_unavailable": "Ce mode de connexion n'est pas encore disponible. Utilisez votre mot de passe."
+    }
+  },
+  "oauthCallback": {
+    "doneTitle": "C'est fait",
+    "doneSubtitle": "Vous pouvez fermer cette fenêtre.",
+    "pendingTitle": "Connexion en cours…",
+    "pendingSubtitle": "Un instant."
+  },
+  "home": {
+    "landing": {
+      "titleLine1": "Regardez ensemble,",
+      "titleLine2": "où que vous soyez.",
+      "lead": "Des centaines de films du domaine public et de vidéos libres, à regarder seul ou à plusieurs, synchronisés en temps réel avec vos amis.",
+      "createAccount": "Créer un compte",
+      "haveAccount": "J'ai déjà un compte",
+      "features": {
+        "legal": { "title": "100 % légal", "desc": "Internet Archive et PeerTube, contenus libres de droits." },
+        "friends": { "title": "Entre amis", "desc": "Ajoutez vos amis et voyez qui est en ligne." },
+        "hosting": { "title": "Sans hébergement", "desc": "Les vidéos sont lues directement depuis leur source." }
+      }
+    },
+    "rows": {
+      "animation": "Animation libre",
+      "chaplin": "Charlie Chaplin",
+      "era": "Frissons d'époque",
+      "keaton": "Buster Keaton",
+      "documentaries": "Documentaires",
+      "sherlock": "Sherlock Holmes",
+      "cartoons": "Dessins animés d'antan",
+      "hitchcock": "Hitchcock"
+    }
+  },
+  "hero": {
+    "featured": "À la une",
+    "watch": "Regarder"
+  },
+  "media": {
+    "seeAll": "Tout voir",
+    "scrollLeft": "Défiler vers la gauche",
+    "scrollRight": "Défiler vers la droite"
+  },
+  "search": {
+    "title": "Recherche",
+    "resultsFor": "Résultats pour « {query} »",
+    "hint": "Utilisez la barre de recherche en haut de la page.",
+    "sourceLabel": "Source",
+    "sourceAll": "Toutes",
+    "sortLabel": "Trier par",
+    "sort": {
+      "relevance": "Pertinence",
+      "title": "Titre (A-Z)",
+      "yearDesc": "Année (récent → ancien)",
+      "durationDesc": "Durée (longue → courte)"
+    },
+    "resultCount": "{count} résultat | {count} résultats",
+    "prev": "← Précédent",
+    "next": "Suivant →",
+    "pageOf": "Page {page} / {total}",
+    "empty": "Aucun résultat. Essayez un autre titre, comme « Nosferatu » ou « Blender »."
+  },
+  "watch": {
+    "loadError": "Impossible de charger cette vidéo.",
+    "backHome": "Retour à l'accueil",
+    "qualityAria": "Qualité",
+    "showMore": "Voir plus",
+    "showLess": "Voir moins"
+  },
+  "rooms": {
+    "title": "Salles",
+    "intro": "Regardez une vidéo en même temps que vos amis, avec le chat et la lecture synchronisés.",
+    "create": {
+      "title": "Créer une salle",
+      "nameLabel": "Nom de la salle",
+      "namePlaceholder": "Soirée film",
+      "submit": "Créer",
+      "submitting": "Création..."
+    },
+    "join": {
+      "title": "Rejoindre une salle",
+      "hint": "Demande le code à 6 chiffres à la personne qui a créé la salle (ou colle le lien qu'elle t'a envoyé).",
+      "codeLabel": "Code de la salle",
+      "codePlaceholder": "123456",
+      "submit": "Rejoindre"
+    }
+  },
+  "room": {
+    "fallbackName": "Salle",
+    "notFoundTitle": "Salle introuvable",
+    "notFoundText": "Le code « {code} » ne correspond à aucune salle — elle a peut-être été fermée.",
+    "backToRooms": "Retour aux salles",
+    "connecting": "Connexion...",
+    "participantsWithCode": "{count} participant · code {code} | {count} participants · code {code}",
+    "copyLink": "Copier le lien d'invitation",
+    "linkCopied": "Lien copié !",
+    "leave": "Quitter",
+    "picker": {
+      "title": "Choisir une vidéo",
+      "cancel": "Annuler",
+      "searchPlaceholder": "Rechercher un film, une vidéo...",
+      "search": "Rechercher",
+      "searching": "Recherche...",
+      "noResults": "Aucun résultat."
+    },
+    "videoLoadError": "Impossible de charger cette vidéo.",
+    "joinInProgress": "Rejoindre la vidéo en cours",
+    "changeVideo": "Changer la vidéo",
+    "noVideoOwner": "Aucune vidéo choisie pour l'instant.",
+    "noVideoGuest": "En attente que le propriétaire choisisse une vidéo.",
+    "chooseVideo": "Choisir une vidéo",
+    "noMessages": "Aucun message pour l'instant.",
+    "composerPlaceholder": "Écrire un message...",
+    "send": "Envoyer"
+  },
+  "friends": {
+    "title": "Mes amis",
+    "addLabel": "Ajouter un ami",
+    "usernamePlaceholder": "Nom d'utilisateur",
+    "send": "Envoyer",
+    "successSent": "Demande envoyée.",
+    "requestsReceived": "Demandes reçues",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "friendsHeading": "Amis",
+    "noFriends": "Aucun ami pour l'instant. Ajoutez-en un avec son nom d'utilisateur.",
+    "online": "En ligne",
+    "offline": "Hors ligne",
+    "remove": "Retirer"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "changeAvatar": "Changer d'avatar",
+    "delete": "Supprimer",
+    "deleting": "Suppression...",
+    "username": "Nom d'utilisateur",
+    "email": "Email",
+    "save": "Enregistrer",
+    "successProfile": "Profil mis à jour.",
+    "successAvatar": "Avatar mis à jour.",
+    "successAvatarDeleted": "Avatar supprimé."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Tout marquer lu",
+    "empty": "Rien de nouveau.",
+    "aria": "Notifications",
+    "timeAgo": {
+      "now": "à l'instant",
+      "minutes": "il y a {count} min | il y a {count} min",
+      "hours": "il y a {count} h | il y a {count} h",
+      "days": "il y a {count} j | il y a {count} j"
+    },
+    "kinds": {
+      "friend_request": "{username} vous a envoyé une demande d'ami",
+      "friend_accepted": "{username} a accepté votre demande d'ami",
+      "friend_removed": "{username} vous a retiré de ses amis",
+      "room_started": "{username} a lancé une session : « {roomName} »",
+      "room_ownership_transferred": "Vous êtes maintenant propriétaire du salon « {roomName} »"
+    }
+  },
+  "legal": {
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "updated": "Dernière mise à jour : 26 octobre 2026",
+      "sections": {
+        "whoWeAre": {
+          "title": "Qui nous sommes",
+          "body": "SyncWatch est un projet pédagogique réalisé dans le cadre du cursus 42. Cette page explique quelles données sont collectées lorsque vous utilisez le service, pourquoi, et comment elles sont protégées."
+        },
+        "dataCollected": { "title": "Données collectées" },
+        "why": {
+          "title": "Pourquoi ces données sont collectées",
+          "body": "Uniquement pour faire fonctionner le service : vous authentifier, afficher votre profil et vos relations, faire fonctionner les salons partagés et le chat, et assurer la sécurité du compte. Aucune donnée n'est vendue, louée, ni partagée avec des régies publicitaires ou des traceurs tiers."
+        },
+        "externalSources": {
+          "title": "Sources vidéo externes",
+          "body": "SyncWatch n'héberge aucune vidéo : il interroge Internet Archive et PeerTube, puis votre navigateur lit directement le flux chez ces hébergeurs. Vos termes de recherche sont donc transmis à ces services au moment où vous effectuez une recherche, comme pour n'importe quel site qui interroge une API publique."
+        },
+        "cookies": {
+          "title": "Cookies et stockage local",
+          "before": "Le jeton de session est conservé dans le stockage local de votre navigateur (",
+          "after": "), pas dans un cookie de suivi. Un cookie technique temporaire, protégé (HttpOnly), est utilisé uniquement pendant la connexion via Google ou GitHub pour vérifier l'origine de la requête ; il est supprimé juste après. Aucun cookie publicitaire ou de mesure d'audience n'est utilisé."
+        },
+        "retention": {
+          "title": "Conservation des données",
+          "body": "Vos données sont conservées tant que votre compte existe. Vous pouvez demander la suppression de votre compte et des données associées à tout moment (voir Contact ci-dessous)."
+        },
+        "security": {
+          "title": "Sécurité",
+          "body": "Les mots de passe sont hachés avec Argon2, les jetons de session sont hachés avant stockage, et les échanges entre votre navigateur et le serveur sont destinés à être chiffrés (HTTPS)."
+        },
+        "rights": {
+          "title": "Vos droits",
+          "body": "Vous pouvez demander l'accès, la rectification ou la suppression de vos données personnelles en nous contactant à l'adresse ci-dessous."
+        },
+        "changes": {
+          "title": "Modifications",
+          "body": "Cette politique peut évoluer avec le projet. La date de dernière mise à jour est indiquée en haut de cette page."
+        },
+        "contact": {
+          "title": "Contact",
+          "body": "À compléter avec une adresse de contact."
+        }
+      },
+      "dataItems": {
+        "account": { "label": "Compte", "text": "nom d'utilisateur, adresse email, mot de passe (haché avec Argon2, jamais stocké en clair), avatar si vous en téléversez un." },
+        "oauth": { "label": "Connexion via Google ou GitHub", "text": "identifiant de compte externe et adresse email vérifiée par le fournisseur, utilisés uniquement pour créer ou relier votre compte SyncWatch." },
+        "social": { "label": "Réseau social", "text": "votre liste d'amis, les demandes d'ami envoyées ou reçues, votre statut en ligne." },
+        "rooms": { "label": "Salons de visionnage", "text": "les salons que vous créez ou rejoignez, et les messages de chat que vous y envoyez (conservés pour afficher l'historique de la salle)." },
+        "technical": { "label": "Technique", "text": "un jeton de session (haché en base, jamais stocké en clair), et les journaux techniques standard du serveur (adresse IP, horodatage des requêtes) à des fins de sécurité." }
+      }
+    },
+    "terms": {
+      "title": "Conditions générales d'utilisation",
+      "updated": "Dernière mise à jour : 26 octobre 2026",
+      "sections": {
+        "purpose": {
+          "title": "Objet",
+          "body": "SyncWatch est un projet pédagogique réalisé dans le cadre du cursus 42. Il permet à plusieurs utilisateurs de regarder ensemble, en temps réel, des contenus issus de sources légales (Internet Archive, PeerTube), avec un chat et un système d'amis. En créant un compte, vous acceptez les présentes conditions."
+        },
+        "account": {
+          "title": "Compte utilisateur",
+          "body": "Vous êtes responsable de la confidentialité de votre mot de passe et des actions effectuées depuis votre compte. Les informations fournies à l'inscription doivent être exactes."
+        },
+        "allowedUse": {
+          "title": "Usage autorisé",
+          "items": [
+            "Le chat et les salons sont réservés à un usage respectueux : pas de harcèlement, de propos haineux, ni de contenu illégal.",
+            "SyncWatch n'héberge aucun contenu vidéo protégé par des droits d'auteur : seuls les contenus du domaine public (Internet Archive) ou sous licence libre (PeerTube) sont accessibles via l'agrégateur.",
+            "Toute tentative de contournement des mesures de sécurité du service est interdite."
+          ]
+        },
+        "yourContent": {
+          "title": "Contenu que vous fournissez",
+          "body": "L'avatar que vous téléversez reste votre propriété ; vous accordez à SyncWatch le droit de l'afficher dans le cadre du service. Les messages envoyés dans un salon sont conservés pour afficher l'historique de ce salon et peuvent être supprimés avec la salle."
+        },
+        "availability": {
+          "title": "Disponibilité du service",
+          "body": "SyncWatch est un projet pédagogique, pas un service commercial : aucune garantie de disponibilité continue ou d'absence d'interruption n'est fournie."
+        },
+        "termination": {
+          "title": "Résiliation",
+          "body": "Vous pouvez cesser d'utiliser le service et demander la suppression de votre compte à tout moment. L'accès à un compte peut être suspendu en cas d'usage abusif du service ou de non-respect des présentes conditions."
+        },
+        "liability": {
+          "title": "Limitation de responsabilité",
+          "body": "Le service est fourni « en l'état », dans un cadre pédagogique, sans garantie d'aucune sorte quant à son fonctionnement ininterrompu ou l'exactitude des contenus provenant de sources tierces."
+        },
+        "changes": {
+          "title": "Modifications",
+          "body": "Ces conditions peuvent évoluer avec le projet. La date de dernière mise à jour est indiquée en haut de cette page."
+        },
+        "contact": {
+          "title": "Contact",
+          "body": "À compléter avec une adresse de contact."
+        }
+      }
+    }
+  },
+  "footer": {
+    "tagline": "SyncWatch · projet pédagogique · contenus du domaine public et sous licence libre",
+    "privacy": "Politique de confidentialité",
+    "terms": "Conditions générales d'utilisation"
+  }
+}

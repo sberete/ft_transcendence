@@ -1,19 +1,21 @@
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AuthCard from '../components/AuthCard.vue'
 import OAuthButtons from '../components/OAuthButtons.vue'
 import { login } from '../services/api'
 import { useAuth } from '../services/auth'
-import { OAUTH_ERRORS, oauthErrorCode } from '../services/oauth'
+import { oauthErrorCode } from '../services/oauth'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
 const identifier = ref('')
 const password = ref('')
 // ?error=... : connexion Google/GitHub echouee en pleine page (popup bloquee).
-const error = ref(route.query.error ? OAUTH_ERRORS[oauthErrorCode(route.query.error)] : '')
+const error = ref(route.query.error ? t(`oauth.errors.${oauthErrorCode(route.query.error)}`) : '')
 const submitting = ref(false)
 const { setToken } = useAuth()
 
@@ -39,22 +41,22 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <AuthCard title="Connexion" subtitle="Content de vous revoir.">
+  <AuthCard :title="t('auth.login.title')" :subtitle="t('auth.login.subtitle')">
     <form @submit.prevent="handleSubmit">
       <label class="field">
-        Email ou nom d'utilisateur
+        {{ t('auth.login.identifier') }}
         <input v-model="identifier" class="input" type="text" autocomplete="username" required />
       </label>
       <label class="field">
-        Mot de passe
+        {{ t('auth.login.password') }}
         <input v-model="password" class="input" type="password" autocomplete="current-password" required />
       </label>
       <p v-if="error" class="msg-error">{{ error }}</p>
       <button type="submit" class="btn btn-primary btn-lg" :disabled="submitting">
-        {{ submitting ? 'Connexion...' : 'Se connecter' }}
+        {{ submitting ? t('auth.login.submitting') : t('auth.login.submit') }}
       </button>
     </form>
     <OAuthButtons />
-    <p class="switch muted">Pas de compte ? <router-link to="/signup">S'inscrire</router-link></p>
+    <p class="switch muted">{{ t('auth.login.noAccount') }} <router-link to="/signup">{{ t('auth.login.signupLink') }}</router-link></p>
   </AuthCard>
 </template>

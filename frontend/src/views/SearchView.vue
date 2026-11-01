@@ -1,11 +1,13 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import MediaCard from '../components/MediaCard.vue'
 import { searchMedia } from '../services/api'
 import { useAuth } from '../services/auth'
 import { PROVIDER_LABELS } from '../services/format'
 
+const { t } = useI18n()
 const route = useRoute()
 const { token } = useAuth()
 
@@ -75,31 +77,31 @@ const pagedResults = computed(() => {
 
 <template>
   <main class="page">
-    <h1 v-if="route.query.q">Résultats pour « {{ route.query.q }} »</h1>
-    <h1 v-else>Recherche</h1>
+    <h1 v-if="route.query.q">{{ t('search.resultsFor', { query: route.query.q }) }}</h1>
+    <h1 v-else>{{ t('search.title') }}</h1>
 
     <p v-if="error" class="msg-error">{{ error }}</p>
-    <p v-else-if="!route.query.q" class="muted hint">Utilisez la barre de recherche en haut de la page.</p>
+    <p v-else-if="!route.query.q" class="muted hint">{{ t('search.hint') }}</p>
 
     <div v-if="route.query.q && !error" class="controls">
       <label class="control">
-        Source
+        {{ t('search.sourceLabel') }}
         <select v-model="provider" class="input">
-          <option value="">Toutes</option>
+          <option value="">{{ t('search.sourceAll') }}</option>
           <option v-for="(label, id) in PROVIDER_LABELS" :key="id" :value="id">{{ label }}</option>
         </select>
       </label>
       <label class="control">
-        Trier par
+        {{ t('search.sortLabel') }}
         <select v-model="sortBy" class="input">
-          <option value="relevance">Pertinence</option>
-          <option value="title">Titre (A-Z)</option>
-          <option value="year-desc">Année (récent → ancien)</option>
-          <option value="duration-desc">Durée (longue → courte)</option>
+          <option value="relevance">{{ t('search.sort.relevance') }}</option>
+          <option value="title">{{ t('search.sort.title') }}</option>
+          <option value="year-desc">{{ t('search.sort.yearDesc') }}</option>
+          <option value="duration-desc">{{ t('search.sort.durationDesc') }}</option>
         </select>
       </label>
       <p v-if="!loading" class="muted count">
-        {{ sortedResults.length }} résultat{{ sortedResults.length > 1 ? 's' : '' }}
+        {{ t('search.resultCount', { count: sortedResults.length }, sortedResults.length) }}
       </p>
     </div>
 
@@ -114,13 +116,13 @@ const pagedResults = computed(() => {
     </div>
 
     <div v-if="!loading && totalPages > 1" class="pagination">
-      <button class="btn btn-ghost btn-sm" :disabled="page === 1" @click="page--">← Précédent</button>
-      <span class="muted">Page {{ page }} / {{ totalPages }}</span>
-      <button class="btn btn-ghost btn-sm" :disabled="page === totalPages" @click="page++">Suivant →</button>
+      <button class="btn btn-ghost btn-sm" :disabled="page === 1" @click="page--">{{ t('search.prev') }}</button>
+      <span class="muted">{{ t('search.pageOf', { page, total: totalPages }) }}</span>
+      <button class="btn btn-ghost btn-sm" :disabled="page === totalPages" @click="page++">{{ t('search.next') }}</button>
     </div>
 
     <div v-if="!loading && route.query.q && results.length === 0 && !error" class="empty">
-      <p>Aucun résultat. Essayez un autre titre, comme « Nosferatu » ou « Blender ».</p>
+      <p>{{ t('search.empty') }}</p>
     </div>
   </main>
 </template>

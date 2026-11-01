@@ -1,57 +1,61 @@
 <script setup>
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import HeroBanner from '../components/HeroBanner.vue'
 import MediaRow from '../components/MediaRow.vue'
 import { useAuth } from '../services/auth'
 
+const { t } = useI18n()
 const { token } = useAuth()
 
 // Video mise en avant : Big Buck Bunny (Blender Foundation, licence CC-BY) sur Framatube.
 const FEATURED = { provider: 'peertube', id: '1f5bfc59-998b-41b3-9be3-e8084ad1a2a1' }
 
-// Chaque rangee est une recherche ciblee sur une source.
+// Chaque rangee est une recherche ciblee sur une source. `query` part vers le
+// backend tel quel (termes de recherche, jamais traduits) ; seul `titleKey`
+// (le libelle affiche) suit la langue active.
 const ROWS = [
-  { title: 'Animation libre', query: 'blender', provider: 'peertube' },
-  { title: 'Charlie Chaplin', query: 'chaplin', provider: 'archive' },
-  { title: "Frissons d'époque", query: 'dracula', provider: 'archive' },
-  { title: 'Buster Keaton', query: 'keaton', provider: 'archive' },
-  { title: 'Documentaires', query: 'documentaire', provider: 'peertube' },
-  { title: 'Sherlock Holmes', query: 'sherlock holmes', provider: 'archive' },
-  { title: "Dessins animés d'antan", query: 'popeye', provider: 'archive' },
-  { title: 'Hitchcock', query: 'hitchcock', provider: 'archive' },
+  { titleKey: 'home.rows.animation', query: 'blender', provider: 'peertube' },
+  { titleKey: 'home.rows.chaplin', query: 'chaplin', provider: 'archive' },
+  { titleKey: 'home.rows.era', query: 'dracula', provider: 'archive' },
+  { titleKey: 'home.rows.keaton', query: 'keaton', provider: 'archive' },
+  { titleKey: 'home.rows.documentaries', query: 'documentaire', provider: 'peertube' },
+  { titleKey: 'home.rows.sherlock', query: 'sherlock holmes', provider: 'archive' },
+  { titleKey: 'home.rows.cartoons', query: 'popeye', provider: 'archive' },
+  { titleKey: 'home.rows.hitchcock', query: 'hitchcock', provider: 'archive' },
 ]
+
+const rows = computed(() => ROWS.map((row) => ({ ...row, title: t(row.titleKey) })))
 </script>
 
 <template>
   <main v-if="token">
     <HeroBanner :provider="FEATURED.provider" :id="FEATURED.id" />
-    <MediaRow v-for="row in ROWS" :key="row.query" :title="row.title" :query="row.query" :provider="row.provider" />
+    <MediaRow v-for="row in rows" :key="row.query" :title="row.title" :query="row.query" :provider="row.provider" />
   </main>
 
   <main v-else class="landing">
     <div class="landing-bg" aria-hidden="true"></div>
     <div class="landing-content">
-      <h1>Regardez ensemble,<br />où que vous soyez.</h1>
-      <p class="lead">
-        Des centaines de films du domaine public et de vidéos libres, à regarder seul ou à plusieurs, synchronisés en
-        temps réel avec vos amis.
-      </p>
+      <h1>{{ t('home.landing.titleLine1') }}<br />{{ t('home.landing.titleLine2') }}</h1>
+      <p class="lead">{{ t('home.landing.lead') }}</p>
       <div class="cta">
-        <router-link to="/signup" class="btn btn-primary btn-lg">Créer un compte</router-link>
-        <router-link to="/login" class="btn btn-ghost btn-lg">J'ai déjà un compte</router-link>
+        <router-link to="/signup" class="btn btn-primary btn-lg">{{ t('home.landing.createAccount') }}</router-link>
+        <router-link to="/login" class="btn btn-ghost btn-lg">{{ t('home.landing.haveAccount') }}</router-link>
       </div>
 
       <ul class="features">
         <li>
-          <strong>100 % légal</strong>
-          <span>Internet Archive et PeerTube, contenus libres de droits.</span>
+          <strong>{{ t('home.landing.features.legal.title') }}</strong>
+          <span>{{ t('home.landing.features.legal.desc') }}</span>
         </li>
         <li>
-          <strong>Entre amis</strong>
-          <span>Ajoutez vos amis et voyez qui est en ligne.</span>
+          <strong>{{ t('home.landing.features.friends.title') }}</strong>
+          <span>{{ t('home.landing.features.friends.desc') }}</span>
         </li>
         <li>
-          <strong>Sans hébergement</strong>
-          <span>Les vidéos sont lues directement depuis leur source.</span>
+          <strong>{{ t('home.landing.features.hosting.title') }}</strong>
+          <span>{{ t('home.landing.features.hosting.desc') }}</span>
         </li>
       </ul>
     </div>

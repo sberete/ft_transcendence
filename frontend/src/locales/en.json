@@ -1,0 +1,310 @@
+{
+  "nav": {
+    "homeAria": "SyncWatch, home",
+    "home": "Home",
+    "friends": "Friends",
+    "rooms": "Rooms",
+    "searchPlaceholder": "Search for a movie, a video...",
+    "searchAria": "Search",
+    "accountMenuAria": "Account menu",
+    "myProfile": "My profile",
+    "myFriends": "My friends",
+    "logout": "Log out",
+    "login": "Log in",
+    "signup": "Sign up",
+    "languageSwitcher": "Change language"
+  },
+  "auth": {
+    "login": {
+      "title": "Log in",
+      "subtitle": "Good to see you again.",
+      "identifier": "Email or username",
+      "password": "Password",
+      "submit": "Log in",
+      "submitting": "Logging in...",
+      "noAccount": "No account?",
+      "signupLink": "Sign up"
+    },
+    "signup": {
+      "title": "Create an account",
+      "subtitle": "Free, and it takes 10 seconds.",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 8 characters",
+      "submit": "Sign up",
+      "submitting": "Creating...",
+      "haveAccount": "Already have an account?",
+      "loginLink": "Log in"
+    }
+  },
+  "oauth": {
+    "divider": "or",
+    "continueWith": "Continue with {provider}",
+    "errors": {
+      "oauth": "The connection with this service failed. Please try again.",
+      "oauth_unavailable": "This sign-in method isn't available yet. Use your password instead."
+    }
+  },
+  "oauthCallback": {
+    "doneTitle": "All done",
+    "doneSubtitle": "You can close this window.",
+    "pendingTitle": "Signing you in…",
+    "pendingSubtitle": "One moment."
+  },
+  "home": {
+    "landing": {
+      "titleLine1": "Watch together,",
+      "titleLine2": "wherever you are.",
+      "lead": "Hundreds of public-domain films and freely-licensed videos, to watch alone or with others, synchronized in real time with your friends.",
+      "createAccount": "Create an account",
+      "haveAccount": "I already have an account",
+      "features": {
+        "legal": { "title": "100% legal", "desc": "Internet Archive and PeerTube, royalty-free content." },
+        "friends": { "title": "With friends", "desc": "Add friends and see who's online." },
+        "hosting": { "title": "No hosting", "desc": "Videos are streamed directly from their source." }
+      }
+    },
+    "rows": {
+      "animation": "Free animation",
+      "chaplin": "Charlie Chaplin",
+      "era": "Vintage chills",
+      "keaton": "Buster Keaton",
+      "documentaries": "Documentaries",
+      "sherlock": "Sherlock Holmes",
+      "cartoons": "Classic cartoons",
+      "hitchcock": "Hitchcock"
+    }
+  },
+  "hero": {
+    "featured": "Featured",
+    "watch": "Watch"
+  },
+  "media": {
+    "seeAll": "See all",
+    "scrollLeft": "Scroll left",
+    "scrollRight": "Scroll right"
+  },
+  "search": {
+    "title": "Search",
+    "resultsFor": "Results for “{query}”",
+    "hint": "Use the search bar at the top of the page.",
+    "sourceLabel": "Source",
+    "sourceAll": "All",
+    "sortLabel": "Sort by",
+    "sort": {
+      "relevance": "Relevance",
+      "title": "Title (A-Z)",
+      "yearDesc": "Year (newest → oldest)",
+      "durationDesc": "Duration (longest → shortest)"
+    },
+    "resultCount": "{count} result | {count} results",
+    "prev": "← Previous",
+    "next": "Next →",
+    "pageOf": "Page {page} of {total}",
+    "empty": "No results. Try another title, like “Nosferatu” or “Blender”."
+  },
+  "watch": {
+    "loadError": "This video couldn't be loaded.",
+    "backHome": "Back to home",
+    "qualityAria": "Quality",
+    "showMore": "Show more",
+    "showLess": "Show less"
+  },
+  "rooms": {
+    "title": "Rooms",
+    "intro": "Watch a video together with your friends, with synchronized chat and playback.",
+    "create": {
+      "title": "Create a room",
+      "nameLabel": "Room name",
+      "namePlaceholder": "Movie night",
+      "submit": "Create",
+      "submitting": "Creating..."
+    },
+    "join": {
+      "title": "Join a room",
+      "hint": "Ask the person who created the room for the 6-digit code (or paste the link they sent you).",
+      "codeLabel": "Room code",
+      "codePlaceholder": "123456",
+      "submit": "Join"
+    }
+  },
+  "room": {
+    "fallbackName": "Room",
+    "notFoundTitle": "Room not found",
+    "notFoundText": "The code “{code}” doesn't match any room — it may have been closed.",
+    "backToRooms": "Back to rooms",
+    "connecting": "Connecting...",
+    "participantsWithCode": "{count} participant · code {code} | {count} participants · code {code}",
+    "copyLink": "Copy invite link",
+    "linkCopied": "Link copied!",
+    "leave": "Leave",
+    "picker": {
+      "title": "Choose a video",
+      "cancel": "Cancel",
+      "searchPlaceholder": "Search for a movie, a video...",
+      "search": "Search",
+      "searching": "Searching...",
+      "noResults": "No results."
+    },
+    "videoLoadError": "This video couldn't be loaded.",
+    "joinInProgress": "Join the video in progress",
+    "changeVideo": "Change video",
+    "noVideoOwner": "No video chosen yet.",
+    "noVideoGuest": "Waiting for the owner to choose a video.",
+    "chooseVideo": "Choose a video",
+    "noMessages": "No messages yet.",
+    "composerPlaceholder": "Write a message...",
+    "send": "Send"
+  },
+  "friends": {
+    "title": "My friends",
+    "addLabel": "Add a friend",
+    "usernamePlaceholder": "Username",
+    "send": "Send",
+    "successSent": "Request sent.",
+    "requestsReceived": "Requests received",
+    "accept": "Accept",
+    "decline": "Decline",
+    "friendsHeading": "Friends",
+    "noFriends": "No friends yet. Add one using their username.",
+    "online": "Online",
+    "offline": "Offline",
+    "remove": "Remove"
+  },
+  "profile": {
+    "title": "My profile",
+    "changeAvatar": "Change avatar",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "username": "Username",
+    "email": "Email",
+    "save": "Save",
+    "successProfile": "Profile updated.",
+    "successAvatar": "Avatar updated.",
+    "successAvatarDeleted": "Avatar deleted."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "empty": "Nothing new.",
+    "aria": "Notifications",
+    "timeAgo": {
+      "now": "just now",
+      "minutes": "{count} minute ago | {count} minutes ago",
+      "hours": "{count} hour ago | {count} hours ago",
+      "days": "{count} day ago | {count} days ago"
+    },
+    "kinds": {
+      "friend_request": "{username} sent you a friend request",
+      "friend_accepted": "{username} accepted your friend request",
+      "friend_removed": "{username} removed you as a friend",
+      "room_started": "{username} started a session: “{roomName}”",
+      "room_ownership_transferred": "You are now the owner of the room “{roomName}”"
+    }
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy Policy",
+      "updated": "Last updated: October 26, 2026",
+      "sections": {
+        "whoWeAre": {
+          "title": "Who we are",
+          "body": "SyncWatch is an educational project built as part of the 42 curriculum. This page explains what data is collected when you use the service, why, and how it is protected."
+        },
+        "dataCollected": { "title": "Data collected" },
+        "why": {
+          "title": "Why this data is collected",
+          "body": "Only to make the service work: authenticating you, displaying your profile and relationships, running shared rooms and chat, and keeping your account secure. No data is sold, rented, or shared with advertising networks or third-party trackers."
+        },
+        "externalSources": {
+          "title": "External video sources",
+          "body": "SyncWatch hosts no video itself: it queries Internet Archive and PeerTube, and your browser streams directly from those hosts. Your search terms are therefore sent to those services whenever you search, just like any site that calls a public API."
+        },
+        "cookies": {
+          "title": "Cookies and local storage",
+          "before": "The session token is kept in your browser's local storage (",
+          "after": "), not in a tracking cookie. A temporary, protected (HttpOnly) technical cookie is used only during sign-in via Google or GitHub to verify the request's origin; it is deleted right afterwards. No advertising or analytics cookie is used."
+        },
+        "retention": {
+          "title": "Data retention",
+          "body": "Your data is kept for as long as your account exists. You can request deletion of your account and associated data at any time (see Contact below)."
+        },
+        "security": {
+          "title": "Security",
+          "body": "Passwords are hashed with Argon2, session tokens are hashed before storage, and traffic between your browser and the server is meant to be encrypted (HTTPS)."
+        },
+        "rights": {
+          "title": "Your rights",
+          "body": "You can request access to, correction of, or deletion of your personal data by contacting us at the address below."
+        },
+        "changes": {
+          "title": "Changes",
+          "body": "This policy may evolve along with the project. The last-updated date is shown at the top of this page."
+        },
+        "contact": {
+          "title": "Contact",
+          "body": "To be completed with a contact address."
+        }
+      },
+      "dataItems": {
+        "account": { "label": "Account", "text": "username, email address, password (hashed with Argon2, never stored in plain text), avatar if you upload one." },
+        "oauth": { "label": "Google or GitHub sign-in", "text": "the external account identifier and the email address verified by the provider, used only to create or link your SyncWatch account." },
+        "social": { "label": "Social graph", "text": "your friends list, friend requests sent or received, your online status." },
+        "rooms": { "label": "Watch rooms", "text": "the rooms you create or join, and the chat messages you send there (kept to display the room's history)." },
+        "technical": { "label": "Technical", "text": "a session token (hashed in the database, never stored in plain text), and standard server technical logs (IP address, request timestamps) for security purposes." }
+      }
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "updated": "Last updated: October 26, 2026",
+      "sections": {
+        "purpose": {
+          "title": "Purpose",
+          "body": "SyncWatch is an educational project built as part of the 42 curriculum. It lets several users watch legally-sourced content (Internet Archive, PeerTube) together in real time, with chat and a friends system. By creating an account, you agree to these terms."
+        },
+        "account": {
+          "title": "User account",
+          "body": "You are responsible for keeping your password confidential and for actions taken from your account. The information provided at signup must be accurate."
+        },
+        "allowedUse": {
+          "title": "Permitted use",
+          "items": [
+            "Chat and rooms are for respectful use only: no harassment, hate speech, or illegal content.",
+            "SyncWatch hosts no copyrighted video content: only public-domain content (Internet Archive) or freely-licensed content (PeerTube) is accessible through the aggregator.",
+            "Any attempt to bypass the service's security measures is forbidden."
+          ]
+        },
+        "yourContent": {
+          "title": "Content you provide",
+          "body": "The avatar you upload remains your property; you grant SyncWatch the right to display it as part of the service. Messages sent in a room are kept to display that room's history and may be deleted along with the room."
+        },
+        "availability": {
+          "title": "Service availability",
+          "body": "SyncWatch is an educational project, not a commercial service: no guarantee of continuous availability or absence of interruption is provided."
+        },
+        "termination": {
+          "title": "Termination",
+          "body": "You may stop using the service and request deletion of your account at any time. Access to an account may be suspended in case of abusive use of the service or failure to comply with these terms."
+        },
+        "liability": {
+          "title": "Limitation of liability",
+          "body": "The service is provided “as is”, in an educational context, without any warranty as to uninterrupted operation or the accuracy of content from third-party sources."
+        },
+        "changes": {
+          "title": "Changes",
+          "body": "These terms may evolve along with the project. The last-updated date is shown at the top of this page."
+        },
+        "contact": {
+          "title": "Contact",
+          "body": "To be completed with a contact address."
+        }
+      }
+    }
+  },
+  "footer": {
+    "tagline": "SyncWatch · educational project · public-domain and freely-licensed content",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  }
+}

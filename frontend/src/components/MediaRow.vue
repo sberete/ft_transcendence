@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import MediaCard from './MediaCard.vue'
 import { searchMedia } from '../services/api'
 import { useAuth } from '../services/auth'
@@ -11,6 +12,7 @@ const props = defineProps({
   provider: { type: String, default: null },
 })
 
+const { t } = useI18n()
 const { token } = useAuth()
 const items = ref([])
 const loading = ref(true)
@@ -37,11 +39,11 @@ function scroll(direction) {
   <section v-if="loading || items.length > 0" class="row">
     <div class="row-head">
       <h2>{{ title }}</h2>
-      <router-link v-if="!loading" :to="{ path: '/search', query: { q: query } }" class="see-all">Tout voir</router-link>
+      <router-link v-if="!loading" :to="{ path: '/search', query: { q: query } }" class="see-all">{{ t('media.seeAll') }}</router-link>
     </div>
 
     <div class="row-body">
-      <button class="arrow left" aria-label="Défiler vers la gauche" @click="scroll(-1)">‹</button>
+      <button class="arrow left" :aria-label="t('media.scrollLeft')" @click="scroll(-1)">‹</button>
       <div ref="track" class="track">
         <template v-if="loading">
           <div v-for="n in 6" :key="n" class="slot">
@@ -53,7 +55,7 @@ function scroll(direction) {
           <MediaCard :item="item" />
         </div>
       </div>
-      <button class="arrow right" aria-label="Défiler vers la droite" @click="scroll(1)">›</button>
+      <button class="arrow right" :aria-label="t('media.scrollRight')" @click="scroll(1)">›</button>
     </div>
   </section>
 </template>

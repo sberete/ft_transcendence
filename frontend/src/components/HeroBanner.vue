@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getMediaDetails } from '../services/api'
 import { useAuth } from '../services/auth'
 import { PROVIDER_LABELS, formatDuration, htmlToText } from '../services/format'
@@ -10,6 +11,7 @@ const props = defineProps({
   id: { type: String, required: true },
 })
 
+const { t } = useI18n()
 const { token } = useAuth()
 const media = ref(null)
 
@@ -40,7 +42,7 @@ onMounted(async () => {
     <div class="shade"></div>
 
     <div class="content">
-      <p class="badge">À la une</p>
+      <p class="badge">{{ t('hero.featured') }}</p>
       <template v-if="media">
         <h1>{{ media.title }}</h1>
         <p class="meta">
@@ -52,7 +54,7 @@ onMounted(async () => {
         <div class="actions">
           <router-link :to="watchLink" class="btn btn-primary btn-lg">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-            Regarder
+            {{ t('hero.watch') }}
           </router-link>
         </div>
       </template>
