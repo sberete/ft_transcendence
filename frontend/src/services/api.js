@@ -184,3 +184,23 @@ export function listRoomMessages(token, code, before = null, limit = 50) {
 export function oauthStartUrl(provider) {
   return `${BASE_URL}/api/auth/oauth/${provider}/start`
 }
+
+export function listNotifications(token) {
+  return request('/notifications', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function markNotificationRead(token, id) {
+  return request(`/notifications/${id}/read`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function markAllNotificationsRead(token) {
+  return request('/notifications/read-all', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}

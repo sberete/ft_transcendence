@@ -235,6 +235,8 @@ async fn leave_current_room(state: &WsState, _tx: &OutgoingTx, user: &UserRef, c
                 .bind(room_id)
                 .execute(&state.pool)
                 .await;
+
+            notify_ownership_transfer(&state.pool, room_id, new_owner_id).await;
         }
         broadcast(
             &outcome.notify_remaining,
@@ -346,6 +348,25 @@ fn broadcast_playback_state(notify: &[OutgoingTx], snapshot: super::protocol::Pl
             by,
         },
     );
+}
+
+// Best-effort, comme les autres notifications : ne doit jamais bloquer le
+// transfert de propriete lui-meme (deja applique en DB avant cet appel).
+async fn notify_ownership_transfer(pool: &PgPool, room_id: i64, new_owner_id: i64) {
+    let Ok(Some((code, name))) = sqlx::query_as::<_, (String, String)>(
+        "SELECT code, name FROM rooms WHERE id = $1",
+    )
+    .bind(room_id)
+    .fetch_optional(pool)
+    .await
+    else {
+        return;
+    };
+
+    let payload = serde_json::json!({ "room_code": code, "room_name": name });
+    if let Err(err) = crate::notifications::create(pool, new_owner_id, "room_ownership_transferred", payload).await {
+        log::warn!("failed to create room_ownership_transferred notification: {err}");
+    }
 }
 
 fn send(tx: &OutgoingTx, message: &ServerMessage) {

@@ -5,6 +5,7 @@ import { BASE_URL, logout as apiLogout } from '../services/api'
 import { useAuth } from '../services/auth'
 import { useCurrentUser } from '../services/currentUser'
 import { avatarSrc } from '../services/format'
+import NotificationBell from './NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -83,6 +84,8 @@ async function handleLogout() {
       </svg>
       <input v-model="query" type="search" placeholder="Rechercher un film, une vidéo..." maxlength="100" aria-label="Rechercher" />
     </form>
+
+    <NotificationBell v-if="token" />
 
     <div v-if="token" ref="menu" class="account">
       <button class="avatar-btn" :aria-expanded="menuOpen" aria-label="Menu du compte" @click="menuOpen = !menuOpen">

@@ -11,6 +11,7 @@ pub fn router(pool: PgPool, rooms: RoomRegistry, frontend_origins: Vec<String>) 
         .nest("/users", crate::users::router())
         .nest("/friends", crate::friends::router())
         .nest("/media", crate::media::router())
+        .nest("/notifications", crate::notifications::router())
         .nest("/rooms", crate::rooms::router())
         .nest("/ws", crate::ws::router(pool, rooms, frontend_origins))
 }

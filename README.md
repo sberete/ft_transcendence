@@ -255,7 +255,7 @@ this table is kept honest rather than aspirational.
 | Recommendation system (ML) | Artificial Intelligence, Major | 2 | **Not started** |
 | File upload and management | Web, Minor | 1 | **Done** — avatar upload (type/size validated server-side by real file signature), a live progress indicator during upload, a delete action, and the previous file is cleaned up from disk on both replace and delete |
 | Remote authentication (OAuth 2.0) | User Management, Minor | 1 | **Done** |
-| Notification system | Web, Minor | 1 | **Not started** |
+| Notification system | Web, Minor | 1 | **Done** — persistent notifications (friend requests/accepts/removals, a friend starting a session, room ownership transfer), surfaced via a navbar bell with an unread count, fetched by polling (the WebSocket connection is scoped to a room, not global to the app) |
 | Support for additional browsers | Accessibility, Minor | 1 | **In progress** — replaces the ORM module (dropped, see "Technical Stack"). A latent crash on browsers without `BroadcastChannel` support was fixed in the OAuth popup flow. See `docs/browser-testing.md` for the test plan; the systematic pass itself (Firefox and Safari in particular) is still to be run |
 | Advanced search | Web, Minor | 1 | **Done** — filter by source, sort by title/year/duration, and client-side pagination (12 results per page) on the search page |
 | 2FA | User Management, Minor | 1 | **Not started** |

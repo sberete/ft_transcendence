@@ -6,8 +6,20 @@ use sqlx::PgPool;
 
 use crate::auth::AuthUser;
 use crate::errors::ApiError;
+use crate::notifications;
 
 const ONLINE_THRESHOLD_SECONDS: &str = "60 seconds";
+
+// Utilise pour denormaliser qui est a l'origine d'une notification (voir
+// notifications::create) sans dupliquer la meme requete a chaque handler.
+async fn user_ref(pool: &PgPool, user_id: i64) -> Option<(String, Option<String>)> {
+    sqlx::query_as("SELECT username, avatar_url FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+}
 
 #[derive(Deserialize)]
 pub struct AddFriendRequest {
@@ -97,6 +109,17 @@ pub async fn send_request(auth: AuthUser, State(pool): State<PgPool>, Json(paylo
         .await
         .map_err(|_| ApiError::Internal)?;
 
+    if let Some((username, avatar_url)) = user_ref(&pool, auth.user_id).await {
+        let payload = serde_json::json!({
+            "from_user_id": auth.user_id,
+            "from_username": username,
+            "from_avatar_url": avatar_url,
+        });
+        if let Err(err) = notifications::create(&pool, friend_id, "friend_request", payload).await {
+            log::warn!("failed to create friend_request notification: {err}");
+        }
+    }
+
     Ok(StatusCode::CREATED)
 }
 
@@ -130,6 +153,17 @@ pub async fn accept_request(auth: AuthUser, State(pool): State<PgPool>, Path(fro
 
     tx.commit().await.map_err(|_| ApiError::Internal)?;
 
+    if let Some((username, avatar_url)) = user_ref(&pool, auth.user_id).await {
+        let payload = serde_json::json!({
+            "from_user_id": auth.user_id,
+            "from_username": username,
+            "from_avatar_url": avatar_url,
+        });
+        if let Err(err) = notifications::create(&pool, from_user_id, "friend_accepted", payload).await {
+            log::warn!("failed to create friend_accepted notification: {err}");
+        }
+    }
+
     let view: FriendView = sqlx::query_as(&format!(
         "SELECT id, username, avatar_url,
                 (last_seen_at > now() - interval '{ONLINE_THRESHOLD_SECONDS}') AS online
@@ -154,6 +188,17 @@ pub async fn remove_friend(auth: AuthUser, State(pool): State<PgPool>, Path(frie
     .execute(&pool)
     .await
     .map_err(|_| ApiError::Internal)?;
+
+    if let Some((username, avatar_url)) = user_ref(&pool, auth.user_id).await {
+        let payload = serde_json::json!({
+            "from_user_id": auth.user_id,
+            "from_username": username,
+            "from_avatar_url": avatar_url,
+        });
+        if let Err(err) = notifications::create(&pool, friend_id, "friend_removed", payload).await {
+            log::warn!("failed to create friend_removed notification: {err}");
+        }
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }

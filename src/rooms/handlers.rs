@@ -7,6 +7,7 @@ use sqlx::PgPool;
 
 use crate::auth::AuthUser;
 use crate::errors::ApiError;
+use crate::notifications;
 
 #[derive(Deserialize)]
 pub struct CreateRoomRequest {
@@ -96,13 +97,54 @@ pub async fn create_room(auth: AuthUser, State(pool): State<PgPool>, Json(payloa
         .await;
 
         match result {
-            Ok(room) => return Ok((StatusCode::CREATED, Json(room))),
+            Ok(room) => {
+                notify_friends_of_new_room(&pool, auth.user_id, &room).await;
+                return Ok((StatusCode::CREATED, Json(room)));
+            }
             Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => continue,
             Err(_) => return Err(ApiError::Internal),
         }
     }
 
     Err(ApiError::Internal)
+}
+
+// "Un ami lance une session" (notifications, [à faire] -> fait le
+// 2026-11-02) : best-effort, ne doit jamais faire echouer la creation du
+// salon elle-meme.
+async fn notify_friends_of_new_room(pool: &PgPool, owner_id: i64, room: &RoomView) {
+    let Some((username, avatar_url)): Option<(String, Option<String>)> =
+        sqlx::query_as("SELECT username, avatar_url FROM users WHERE id = $1")
+            .bind(owner_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten()
+    else {
+        return;
+    };
+
+    let friend_ids: Vec<(i64,)> = sqlx::query_as(
+        "SELECT friend_id FROM friends WHERE user_id = $1 AND status = 'accepted'",
+    )
+    .bind(owner_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let payload = serde_json::json!({
+        "from_user_id": owner_id,
+        "from_username": username,
+        "from_avatar_url": avatar_url,
+        "room_code": room.code,
+        "room_name": room.name,
+    });
+
+    for (friend_id,) in friend_ids {
+        if let Err(err) = notifications::create(pool, friend_id, "room_started", payload.clone()).await {
+            log::warn!("failed to create room_started notification for {friend_id}: {err}");
+        }
+    }
 }
 
 pub async fn get_room(_auth: AuthUser, State(pool): State<PgPool>, Path(code): Path<String>)
