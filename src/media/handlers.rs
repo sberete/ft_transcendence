@@ -1,6 +1,7 @@
-use axum::extract::{Path, Query};
+use axum::extract::{Path, Query, State};
 use axum::{Extension, Json};
 use serde::Deserialize;
+use sqlx::PgPool;
 
 use super::{archive, peertube, MediaClient, MediaDetails, MediaItem, ProviderId};
 use crate::auth::AuthUser;
@@ -53,8 +54,9 @@ pub async fn search(_auth: AuthUser, Extension(client): Extension<MediaClient>, 
 }
 
 pub async fn details(
-    _auth: AuthUser,
+    auth: AuthUser,
     Extension(client): Extension<MediaClient>,
+    State(pool): State<PgPool>,
     Path((provider, id)): Path<(ProviderId, String)>,
 )
     -> Result<Json<MediaDetails>, ApiError>
@@ -82,5 +84,31 @@ pub async fn details(
         return Err(ApiError::NotFound("no playable stream for this media".into()));
     }
 
+    // Seul endroit instrumente pour le systeme de recommandation : WatchView
+    // ET RoomView passent tous les deux par ce endpoint (RoomView le rappelle
+    // des que la video du salon change), donc une seule ligne couvre le
+    // visionnage solo et en salon. Best-effort, ne doit jamais faire echouer
+    // l'affichage de la video elle-meme.
+    log_watch(&pool, auth.user_id, provider, &id, &details.item).await;
+
     Ok(Json(details))
+}
+
+async fn log_watch(pool: &PgPool, user_id: i64, provider: ProviderId, id: &str, item: &MediaItem) {
+    if let Err(err) = sqlx::query(
+        "INSERT INTO watch_history (user_id, provider, media_id, title, year, thumbnail_url, watched_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now())
+         ON CONFLICT (user_id, provider, media_id) DO UPDATE SET watched_at = now()",
+    )
+    .bind(user_id)
+    .bind(provider.as_str())
+    .bind(id)
+    .bind(&item.title)
+    .bind(item.year)
+    .bind(&item.thumbnail)
+    .execute(pool)
+    .await
+    {
+        log::warn!("failed to log watch_history for user {user_id}: {err}");
+    }
 }

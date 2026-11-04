@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import HeroBanner from '../components/HeroBanner.vue'
 import MediaRow from '../components/MediaRow.vue'
+import RecommendedRow from '../components/RecommendedRow.vue'
 import { useAuth } from '../services/auth'
 
 const { t } = useI18n()
@@ -31,6 +32,7 @@ const rows = computed(() => ROWS.map((row) => ({ ...row, title: t(row.titleKey) 
 <template>
   <main v-if="token">
     <HeroBanner :provider="FEATURED.provider" :id="FEATURED.id" />
+    <RecommendedRow />
     <MediaRow v-for="row in rows" :key="row.query" :title="row.title" :query="row.query" :provider="row.provider" />
   </main>
 

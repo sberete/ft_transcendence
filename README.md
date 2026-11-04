@@ -252,7 +252,7 @@ this table is kept honest rather than aspirational.
 | Real-time features (WebSockets) | Web, Major | 2 | **Done** — rooms, presence, chat and synchronized playback all implemented, verified both end-to-end on the protocol and visually across two real browser sessions (clock sync, drift correction, ownership transfer on owner departure) |
 | Allow users to interact (chat, profile, friends) | Web, Major | 2 | **Done** |
 | Standard user management | User Management, Major | 2 | **Done** |
-| Recommendation system (ML) | Artificial Intelligence, Major | 2 | **Not started** |
+| Recommendation system (ML) | Artificial Intelligence, Major | 2 | **Done** — a hybrid of collaborative filtering (co-watch overlap between accounts) and content-based filtering (TF-IDF + cosine similarity over titles, implemented from scratch and unit-tested), fed by a single instrumented endpoint shared by solo and in-room playback. Zero-signal candidates are dropped rather than padded with a "most watched" fallback |
 | File upload and management | Web, Minor | 1 | **Done** — avatar upload (type/size validated server-side by real file signature), a live progress indicator during upload, a delete action, and the previous file is cleaned up from disk on both replace and delete |
 | Remote authentication (OAuth 2.0) | User Management, Minor | 1 | **Done** |
 | Notification system | Web, Minor | 1 | **Done** — persistent notifications (friend requests/accepts/removals, a friend starting a session, room ownership transfer), surfaced via a navbar bell with an unread count, fetched by polling (the WebSocket connection is scoped to a room, not global to the app) |
@@ -260,10 +260,12 @@ this table is kept honest rather than aspirational.
 | Advanced search | Web, Minor | 1 | **Done** — filter by source, sort by title/year/duration, and client-side pagination (12 results per page) on the search page |
 | Support for multiple languages | Accessibility, Minor | 1 | **Done** — French (default) and English, via vue-i18n; a switcher in the navbar, the choice persisted in `localStorage`, and the `lang` attribute kept in sync. Covers the whole app including both legal pages, not just a partial pass. Replaces 2FA (dropped as a module choice) |
 
-This currently totals less than 14 points if only "Done" rows are
-counted; the remaining ones are being worked on. No bonus module is
-claimed until the mandatory 14 points are solid, per the subject's rule
-that bonus is only evaluated once the required part is perfect.
+13 of the 14 points are implemented and verified; the only module not yet
+marked "Done" is "Support for additional browsers", which needs a manual
+pass in real Firefox and Safari (see `docs/browser-testing.md`) rather
+than more code. No bonus module is claimed until the mandatory 14 points
+are solid, per the subject's rule that bonus is only evaluated once the
+required part is perfect.
 
 ## Individual Contributions
 

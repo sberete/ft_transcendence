@@ -204,3 +204,9 @@ export function markAllNotificationsRead(token) {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
+
+export function getRecommendations(token) {
+  return request('/recommendations', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}

@@ -85,6 +85,11 @@
     "scrollLeft": "Scroll left",
     "scrollRight": "Scroll right"
   },
+  "recommendations": {
+    "title": "Recommended for you",
+    "basedOn": "Because you watched \"{title}\"",
+    "coWatched": "Watched by {count} of your friends | Watched by {count} of your friends"
+  },
   "search": {
     "title": "Search",
     "resultsFor": "Results for “{query}”",

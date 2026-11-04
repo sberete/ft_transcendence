@@ -5,6 +5,7 @@ mod errors;
 mod friends;
 mod media;
 mod notifications;
+mod recommendations;
 mod rooms;
 mod routes;
 mod server;

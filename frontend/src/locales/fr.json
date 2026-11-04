@@ -85,6 +85,11 @@
     "scrollLeft": "Défiler vers la gauche",
     "scrollRight": "Défiler vers la droite"
   },
+  "recommendations": {
+    "title": "Recommandé pour vous",
+    "basedOn": "Parce que vous avez regardé « {title} »",
+    "coWatched": "Vu par {count} ami | Vu par {count} amis"
+  },
   "search": {
     "title": "Recherche",
     "resultsFor": "Résultats pour « {query} »",

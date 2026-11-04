@@ -50,6 +50,17 @@ pub enum ProviderId {
     Peertube,
 }
 
+impl ProviderId {
+    // Pour les colonnes TEXT (watch_history.provider) : meme forme que le JSON
+    // (rename_all = "lowercase") mais explicite plutot que de passer par serde.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ProviderId::Archive => "archive",
+            ProviderId::Peertube => "peertube",
+        }
+    }
+}
+
 // Un resultat de recherche, identique quelle que soit la source.
 #[derive(Serialize)]
 pub struct MediaItem {
