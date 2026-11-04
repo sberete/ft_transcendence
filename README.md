@@ -256,16 +256,15 @@ this table is kept honest rather than aspirational.
 | File upload and management | Web, Minor | 1 | **Done** — avatar upload (type/size validated server-side by real file signature), a live progress indicator during upload, a delete action, and the previous file is cleaned up from disk on both replace and delete |
 | Remote authentication (OAuth 2.0) | User Management, Minor | 1 | **Done** |
 | Notification system | Web, Minor | 1 | **Done** — persistent notifications (friend requests/accepts/removals, a friend starting a session, room ownership transfer), surfaced via a navbar bell with an unread count, fetched by polling (the WebSocket connection is scoped to a room, not global to the app) |
-| Support for additional browsers | Accessibility, Minor | 1 | **In progress** — replaces the ORM module (dropped, see "Technical Stack"). A latent crash on browsers without `BroadcastChannel` support was fixed in the OAuth popup flow. See `docs/browser-testing.md` for the test plan; the systematic pass itself (Firefox and Safari in particular) is still to be run |
+| Support for additional browsers | Accessibility, Minor | 1 | **Done** — replaces the ORM module (dropped, see "Technical Stack"). A latent crash on browsers without `BroadcastChannel` support was fixed in the OAuth popup flow. Systematic pass run on real Firefox and Safari (signup/login, OAuth popup, search/filters, avatar upload with progress bar, joining a room by code, chat, and playback sync including mid-session join) — see `docs/browser-testing.md` for the filled-in grid |
 | Advanced search | Web, Minor | 1 | **Done** — filter by source, sort by title/year/duration, and client-side pagination (12 results per page) on the search page |
 | Support for multiple languages | Accessibility, Minor | 1 | **Done** — French (default) and English, via vue-i18n; a switcher in the navbar, the choice persisted in `localStorage`, and the `lang` attribute kept in sync. Covers the whole app including both legal pages, not just a partial pass. Replaces 2FA (dropped as a module choice) |
 
-13 of the 14 points are implemented and verified; the only module not yet
-marked "Done" is "Support for additional browsers", which needs a manual
-pass in real Firefox and Safari (see `docs/browser-testing.md`) rather
-than more code. No bonus module is claimed until the mandatory 14 points
-are solid, per the subject's rule that bonus is only evaluated once the
-required part is perfect.
+All 14 mandatory points are implemented and verified, including the
+manual Firefox/Safari pass for "Support for additional browsers" (see
+`docs/browser-testing.md`). No bonus module is claimed until the
+mandatory 14 points are solid, per the subject's rule that bonus is only
+evaluated once the required part is perfect.
 
 ## Individual Contributions
 

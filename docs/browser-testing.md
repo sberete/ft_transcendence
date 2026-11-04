@@ -69,8 +69,8 @@ note) dans chaque colonne.
 
 | Navigateur (version) | Signup/Login | OAuth popup | Recherche + filtres | Upload avatar + barre | Salon : rejoindre par code | Chat | Sync vidéo (lecture en cours) | Sync vidéo (rejoindre en cours) | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| Firefox ( ) | | | | | | | | | |
-| Safari ( ) | | | | | | | | | |
+| Firefox | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Passe faite le 2026-11-04, confirmée par l'utilisateur en vrai sur sa machine |
+| Safari | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Passe faite le 2026-11-04, confirmée par l'utilisateur en vrai sur sa machine |
 
 ## Comment tester la synchro vidéo (le point le plus facile à mal tester)
 
