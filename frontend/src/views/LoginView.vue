@@ -1,4 +1,6 @@
 <script setup>
+// Login page: identifier + password form, plus OAuth buttons and the
+// redirect-after-login safety check.
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -14,17 +16,19 @@ const router = useRouter()
 
 const identifier = ref('')
 const password = ref('')
-// ?error=... : connexion Google/GitHub echouee en pleine page (popup bloquee).
+// ?error=... : Google/GitHub login failed in full-page mode (popup blocked).
 const error = ref(route.query.error ? t(`oauth.errors.${oauthErrorCode(route.query.error)}`) : '')
 const submitting = ref(false)
 const { setToken } = useAuth()
 
-// ?redirect= vient de l'URL, donc de n'importe qui : on n'accepte qu'un chemin
-// interne ("/watch/..."), jamais "//evil.com" ou "https://..." (open redirect).
+// Validates the post-login redirect target. ?redirect= comes from the URL,
+// so from anyone: only accept an internal path ("/watch/..."), never
+// "//evil.com" or "https://..." (open redirect).
 function safeRedirect(value) {
   return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
 }
 
+// Submits the login form and redirects on success.
 async function handleSubmit() {
   error.value = ''
   submitting.value = true

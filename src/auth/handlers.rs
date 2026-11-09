@@ -1,3 +1,7 @@
+// HTTP handlers for local (email+password) authentication: signup,
+// login (with brute-force rate limiting and constant-time password
+// checking), and logout. OAuth has its own handlers in `oauth/`.
+
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::{Extension, Json};
@@ -29,15 +33,17 @@ pub(super) struct AuthResponse {
 #[derive(sqlx::FromRow)]
 struct UserCredentials {
     id: i64,
-    // None pour un compte cree via Google/GitHub.
+    // None for an account created via Google/GitHub.
     password_hash: Option<String>,
 }
 
-// Doit matcher VARCHAR(32) sur users.username (migration 0001) : sans ce
-// controle, un pseudo trop long remonte comme une erreur Postgres generique
-// (500) au lieu d'un 400, puisque ce n'est pas une violation d'unicite.
+// Must match VARCHAR(32) on users.username (migration 0001): without this
+// check, an over-long username would surface as a generic Postgres error
+// (500) instead of a 400, since it's not a uniqueness violation.
 const USERNAME_MAX_LEN: usize = 32;
 
+// Creates a new account: validates the input, hashes the password, inserts
+// the row, and immediately opens a session so the caller is logged in.
 pub async fn signup(State(pool): State<PgPool>, Json(payload): Json<SignupRequest>)
     -> Result<(StatusCode, Json<AuthResponse>), ApiError>
 {
@@ -81,6 +87,9 @@ pub async fn signup(State(pool): State<PgPool>, Json(payload): Json<SignupReques
     Ok((StatusCode::CREATED, Json(AuthResponse { token })))
 }
 
+// Verifies credentials and opens a session. Rate-limited per IP against
+// brute force, and deliberately constant-time regardless of whether the
+// identifier exists (see `dummy_password_hash` below).
 pub async fn login(
     State(pool): State<PgPool>,
     Extension(rate_limiter): Extension<LoginRateLimiter>,
@@ -103,13 +112,13 @@ pub async fn login(
 
     let real_hash = user.as_ref().and_then(|u| u.password_hash.as_deref());
 
-    // Un identifiant inconnu ou un compte OAuth (sans mot de passe) doit
-    // prendre le meme temps a repondre qu'un mauvais mot de passe : sinon
-    // la duree de reponse revele si le compte existe avant meme de
-    // verifier quoi que ce soit (enumeration par le temps). On compare
-    // donc TOUJOURS contre un hash Argon2 - un faux fixe si besoin - pour
-    // ne jamais faire plus ou moins de travail que le cas normal (une
-    // seule verification, jamais un hash ET une verification).
+    // An unknown identifier or an OAuth account (no password) must take
+    // exactly as long to answer as a wrong password: otherwise the response
+    // time would reveal whether the account exists before anything is even
+    // checked (timing-based enumeration). So we ALWAYS compare against an
+    // Argon2 hash - a fixed dummy one if needed - to never do more or less
+    // work than the normal case (a single verification, never a hash AND
+    // a verification).
     let hash_to_check: &str = match real_hash {
         Some(hash) => hash,
         None => dummy_password_hash(),
@@ -128,6 +137,7 @@ pub async fn login(
     Ok(Json(AuthResponse { token }))
 }
 
+// Deletes the current session; the client is expected to drop the token.
 pub async fn logout(State(pool): State<PgPool>, headers: HeaderMap)
     -> Result<StatusCode, ApiError>
 {
@@ -140,6 +150,7 @@ pub async fn logout(State(pool): State<PgPool>, headers: HeaderMap)
     Ok(StatusCode::NO_CONTENT)
 }
 
+// Pulls the raw token out of the `Authorization: Bearer <token>` header.
 fn extract_bearer_token(headers: &HeaderMap)
     -> Option<&str>
 {
@@ -150,10 +161,10 @@ fn extract_bearer_token(headers: &HeaderMap)
         .strip_prefix("Bearer ")
 }
 
-// Hash fixe (calcule une seule fois par processus) contre lequel comparer
-// quand il n'y a pas de vrai hash a verifier : un identifiant inconnu ne
-// doit jamais eviter l'etape de verification Argon2, sinon sa duree de
-// reponse plus courte revele que le compte n'existe pas.
+// Fixed hash (computed once per process) to compare against when there is
+// no real hash to check: an unknown identifier must never skip the Argon2
+// verification step, or its shorter response time would reveal that the
+// account doesn't exist.
 fn dummy_password_hash() -> &'static str
 {
     static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -163,11 +174,11 @@ fn dummy_password_hash() -> &'static str
     })
 }
 
-// Pose par nginx (X-Real-IP, voir docker/frontend/nginx.conf.template) :
-// le backend n'est jamais expose directement, donc cet en-tete est fiable
-// dans ce deploiement. "unknown" regroupe les appels qui le contournent
-// (ex: curl direct sur le port du backend en dev natif) dans un seul
-// compteur plutot que de planter.
+// Set by nginx (X-Real-IP, see docker/frontend/nginx.conf.template): the
+// backend is never exposed directly, so this header can be trusted in
+// this deployment. "unknown" groups together calls that bypass it (e.g.
+// curl straight to the backend port in native dev) into a single bucket
+// instead of crashing.
 fn client_ip(headers: &HeaderMap)
     -> String
 {

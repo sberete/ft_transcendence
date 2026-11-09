@@ -1,9 +1,13 @@
+// User profile module: reading/updating one's own profile, and
+// uploading or deleting an avatar image.
+
 mod handlers;
 
 use axum::routing::post;
 use axum::Router;
 use sqlx::PgPool;
 
+// REST routes for the current user's own profile and avatar.
 pub fn router() -> Router<PgPool>
 {
     Router::new()

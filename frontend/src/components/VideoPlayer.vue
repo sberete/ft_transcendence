@@ -1,27 +1,30 @@
 <script setup>
+// <video> wrapper that picks the right playback strategy per stream kind
+// and browser, and exposes the underlying element to its parent.
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import Hls from 'hls.js'
 
-// kind : 'mp4' (lu nativement par <video>) ou 'hls' (playlist .m3u8 decoupee
-// en segments, lue via hls.js sauf sur Safari qui la gere nativement).
+// kind: 'mp4' (played natively by <video>) or 'hls' (.m3u8 playlist split
+// into segments, played via hls.js except on Safari which handles it natively).
 const props = defineProps({
   src: { type: String, required: true },
   kind: { type: String, required: true },
-  // Image affichee avant le lancement (sinon un rectangle noir).
+  // Image shown before playback starts (otherwise a black rectangle).
   poster: { type: String, default: null },
 })
 
-// Emis en plus de defineExpose({ video }) : un parent qui recupere l'element
-// <video> expose a travers un ref de composant doit deballer DEUX niveaux de
-// ref (componentRef.value.video.value), ce qui s'est avere peu fiable en
-// pratique (voir RoomView.vue). Un evenement est sans ambiguite : la valeur
-// recue est directement l'element, jamais un ref a deballer.
+// Emitted in addition to defineExpose({ video }): a parent that grabs the
+// <video> element through a component ref would have to unwrap TWO levels
+// of ref (componentRef.value.video.value), which proved unreliable in
+// practice (see RoomView.vue). An event is unambiguous: the received value
+// is directly the element, never a ref to unwrap.
 const emit = defineEmits(['video-ready'])
 
 const video = ref(null)
 watch(video, (el) => emit('video-ready', el))
 let hls = null
 
+// (Re)loads the current src/kind into the <video> element, via hls.js when needed.
 function load() {
   if (hls) {
     hls.destroy()
@@ -41,7 +44,7 @@ onMounted(load)
 watch(() => [props.src, props.kind], load)
 onBeforeUnmount(() => hls?.destroy())
 
-// Expose l'element <video> : la future sync de room (play/pause/seek) en aura besoin.
+// Exposes the <video> element: room playback sync will need it.
 defineExpose({ video })
 </script>
 

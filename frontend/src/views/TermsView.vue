@@ -1,4 +1,7 @@
 <script setup>
+// Terms of service page: purely static legal text, rendered section by
+// section from the i18n messages (legal.terms.*) so it's fully translated.
+// `tm` is used where a section's body is a list rather than one string.
 import { useI18n } from 'vue-i18n'
 
 const { t, tm } = useI18n()

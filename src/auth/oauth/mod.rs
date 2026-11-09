@@ -1,12 +1,12 @@
-// Connexion via Google ou GitHub : OAuth 2.0, flux "authorization code".
+// Login via Google or GitHub: OAuth 2.0 "authorization code" flow.
 //
-//   1. /auth/oauth/{provider}/start    -> on redirige le navigateur chez le fournisseur
-//   2. l'utilisateur accepte chez Google/GitHub
-//   3. /auth/oauth/{provider}/callback -> le fournisseur nous renvoie un `code`
-//   4. le serveur echange ce code (+ son secret) contre le profil de l'utilisateur
-//   5. on cree/retrouve le compte, on ouvre une session, on renvoie vers le front
+//   1. /auth/oauth/{provider}/start    -> redirect the browser to the provider
+//   2. the user approves on Google/GitHub
+//   3. /auth/oauth/{provider}/callback -> the provider sends back a `code`
+//   4. the server exchanges that code (+ its secret) for the user's profile
+//   5. we create/find the account, open a session, redirect back to the frontend
 //
-// Le secret client ne quitte jamais le serveur : c'est tout l'interet de ce flux.
+// The client secret never leaves the server: that's the whole point of this flow.
 
 mod github;
 mod google;
@@ -32,6 +32,7 @@ pub enum Provider {
 }
 
 impl Provider {
+    // Lowercase identifier used in URLs and config lookups.
     fn as_str(self)
         -> &'static str
     {
@@ -42,18 +43,18 @@ impl Provider {
     }
 }
 
-// Identifiants obtenus en enregistrant l'application chez le fournisseur.
+// Credentials obtained by registering the application with the provider.
 #[derive(Clone)]
 pub struct Credentials {
     client_id: String,
     client_secret: String,
 }
 
-// Ce qu'on retient d'un profil externe, identique quel que soit le fournisseur.
+// What we keep from an external profile, the same shape regardless of provider.
 pub struct OAuthProfile {
-    // Identifiant stable du compte chez le fournisseur (ne change jamais).
+    // Stable account identifier on the provider's side (never changes).
     provider_user_id: String,
-    // Email dont le fournisseur garantit qu'il a ete verifie.
+    // Email the provider guarantees has been verified.
     email: String,
     username_hint: String,
 }
@@ -61,10 +62,10 @@ pub struct OAuthProfile {
 #[derive(Debug)]
 pub enum OAuthError {
     Http(reqwest::Error),
-    // Le fournisseur a repondu, mais pas ce qu'on attendait (code invalide, expire...).
+    // The provider responded, but not with what we expected (invalid or expired code...).
     Provider(String),
-    // Sans email verifie on refuse : sinon n'importe qui pourrait declarer
-    // l'email d'un autre et recuperer son compte SyncWatch.
+    // Without a verified email we refuse: otherwise anyone could claim someone
+    // else's email address and take over their SyncWatch account.
     EmailNotVerified,
 }
 
@@ -88,22 +89,24 @@ impl From<reqwest::Error> for OAuthError {
     }
 }
 
-// Partage entre les handlers via Extension, comme MediaClient.
+// Shared between handlers via Extension, like MediaClient.
 #[derive(Clone)]
 pub struct OAuthConfig {
     http: reqwest::Client,
     backend_url: String,
-    // Origines du front autorisees ("http://localhost:5173"), jamais vide.
+    // Allowed frontend origins ("http://localhost:5173"), never empty.
     frontend_origins: Vec<String>,
     google: Option<Credentials>,
     github: Option<Credentials>,
 }
 
 impl OAuthConfig {
+    // Builds the shared OAuth config from the app's Config: the HTTP client,
+    // the allowed frontend origins, and whichever providers have credentials set.
     pub fn new(config: &Config)
         -> Self
     {
-        // GitHub refuse les requetes sans User-Agent.
+        // GitHub refuses requests with no User-Agent.
         let http = reqwest::Client::builder()
             .user_agent(concat!("ft_transcendence/", env!("CARGO_PKG_VERSION")))
             .timeout(HTTP_TIMEOUT)
@@ -136,7 +139,7 @@ impl OAuthConfig {
         }
     }
 
-    // None si le fournisseur n'est pas configure dans .env : il est alors desactive.
+    // None if the provider isn't configured in .env: it's then disabled.
     fn credentials(&self, provider: Provider)
         -> Option<&Credentials>
     {
@@ -146,10 +149,10 @@ impl OAuthConfig {
         }
     }
 
-    // Vers quel front renvoyer le navigateur. `candidate` vient de la requete
-    // (en-tete Referer, cookie) : on ne le suit QUE s'il figure dans la liste
-    // autorisee. Sinon, n'importe quel site pourrait se faire livrer un token
-    // de session (open redirect).
+    // Which frontend to send the browser back to. `candidate` comes from the
+    // request (Referer header, cookie): it's only followed if it's in the
+    // allow-list. Otherwise any site could get a session token delivered to
+    // it (open redirect).
     fn frontend_for(&self, candidate: Option<&str>)
         -> &str
     {
@@ -159,7 +162,7 @@ impl OAuthConfig {
             .unwrap_or(&self.frontend_origins[0])
     }
 
-    // Doit etre IDENTIQUE a l'URL declaree chez le fournisseur, au caractere pres.
+    // Must be IDENTICAL, character for character, to the URL registered with the provider.
     fn redirect_uri(&self, provider: Provider)
         -> String
     {
@@ -172,7 +175,7 @@ fn origin_of(url: &str)
     -> Option<String>
 {
     let origin = Url::parse(url).ok()?.origin();
-    // Une origine "opaque" (data:, file:...) ne designe aucun site.
+    // An "opaque" origin (data:, file:...) names no actual site.
     origin.is_tuple().then(|| origin.ascii_serialization())
 }
 
@@ -180,6 +183,7 @@ fn origin_of(url: &str)
 mod tests {
     use super::*;
 
+    // Builds a minimal OAuthConfig for testing `frontend_for` in isolation.
     fn config(frontends: &[&str])
         -> OAuthConfig
     {
@@ -192,16 +196,18 @@ mod tests {
         }
     }
 
+    // Allowed origins are followed as-is; anything else (including
+    // look-alike or malformed URLs) must fall back to the first allowed one.
     #[test]
     fn frontend_for_only_follows_allowed_origins()
     {
         let config = config(&["http://localhost:5173", "http://localhost:8080"]);
 
-        // Origine autorisee : on y retourne, quel que soit le chemin.
+        // Allowed origin: redirected there, regardless of path.
         assert_eq!(config.frontend_for(Some("http://localhost:8080/login?x=1")), "http://localhost:8080");
         assert_eq!(config.frontend_for(Some("http://localhost:5173/")), "http://localhost:5173");
 
-        // Tout le reste retombe sur la premiere adresse de la liste.
+        // Everything else falls back to the first address in the list.
         for hostile in [
             "https://evil.example/login",
             "http://localhost:8080.evil.example/",

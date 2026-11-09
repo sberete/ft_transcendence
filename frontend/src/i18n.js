@@ -1,3 +1,6 @@
+// Global vue-i18n instance (French by default, English as fallback): the
+// chosen locale is persisted in localStorage and mirrored onto <html lang>
+// so it stays correct for screen readers, not just visually.
 import { createI18n } from 'vue-i18n'
 import fr from './locales/fr.json'
 import en from './locales/en.json'
@@ -5,13 +8,14 @@ import en from './locales/en.json'
 const STORAGE_KEY = 'locale'
 const SUPPORTED = ['fr', 'en']
 
+// Locale to start with: the saved one if it's valid, otherwise French.
 function initialLocale() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (SUPPORTED.includes(stored)) return stored
   } catch {
-    // localStorage indisponible (navigation privee stricte...) : on repart
-    // simplement sur le francais, langue par defaut du projet.
+    // localStorage unavailable (strict private browsing...): just fall
+    // back to French, the project's default language.
   }
   return 'fr'
 }
@@ -23,11 +27,10 @@ export const i18n = createI18n({
   messages: { fr, en },
 })
 
-// Garde l'attribut lang en phase avec la langue active : pas seulement le
-// texte visible, pertinent pour l'accessibilite (lecteurs d'ecran, etc.) -
-// une fois au chargement, puis a chaque changement via setLocale().
+// Keep the lang attribute in sync with the active locale from the start.
 document.documentElement.lang = i18n.global.locale.value
 
+// Switches the active locale, syncs <html lang>, and persists the choice.
 export function setLocale(locale) {
   if (!SUPPORTED.includes(locale)) return
   i18n.global.locale.value = locale
@@ -35,6 +38,6 @@ export function setLocale(locale) {
   try {
     localStorage.setItem(STORAGE_KEY, locale)
   } catch {
-    // idem : pas grave si la preference ne survit pas a la session.
+    // same as above: fine if the preference doesn't survive the session.
   }
 }

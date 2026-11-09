@@ -1,4 +1,6 @@
 <script setup>
+// Watch-party room page: chat, member list, playback sync, and the
+// owner-only video picker, all wired to the room WebSocket.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -16,8 +18,8 @@ const router = useRouter()
 const { token } = useAuth()
 const { user, load: loadUser } = useCurrentUser()
 
-// Code a 6 chiffres (string, jamais convertie en Number : un zero en tete
-// comme "012345" serait tronque par Number()).
+// 6-digit code (string, never converted to Number: a leading zero like
+// "012345" would get truncated by Number()).
 const roomCode = computed(() => String(route.params.code))
 const socket = createRoomSocket(token.value, user)
 const { connected, room, members, media, messages, error } = socket
@@ -31,18 +33,20 @@ const notFound = ref(false)
 
 const isOwner = computed(() => room.value && user.value && room.value.owner_id === user.value.id)
 
-// --- Video : chargement des details + synchro ---
+// --- Video: loading details + sync ---
 const mediaDetails = ref(null)
 const mediaError = ref('')
 const currentStream = computed(() => mediaDetails.value?.streams?.[0] ?? null)
 const videoEl = ref(null)
 const sync = createPlaybackSync(socket, videoEl)
 
+// Receives the real <video> element from VideoPlayer and attaches sync to it.
 function onVideoReady(el) {
   videoEl.value = el
   sync.attach(el)
 }
 
+// Reloads full media details whenever the room's current video changes.
 watch(
   () => media.value,
   async (m) => {
@@ -58,9 +62,9 @@ watch(
   { immediate: true },
 )
 
-// Demarre la calibration d'horloge (ping/pong) des que la connexion est
-// vraiment prete, pas avant : des pings envoyes trop tot seraient perdus
-// (le WebSocket n'accepte d'envoi qu'une fois ouvert).
+// Starts clock calibration (ping/pong) only once the connection is truly
+// ready, not before: pings sent too early would be lost (the WebSocket
+// only accepts sends once open).
 const stopWatchConnected = watch(connected, (isConnected) => {
   if (isConnected) {
     sync.start()
@@ -68,12 +72,13 @@ const stopWatchConnected = watch(connected, (isConnected) => {
   }
 })
 
-// --- Choix de la video (proprietaire uniquement) ---
+// --- Video picker (owner only) ---
 const pickerOpen = ref(false)
 const pickerQuery = ref('')
 const pickerResults = ref([])
 const pickerSearching = ref(false)
 
+// Runs a media search inside the picker panel.
 async function handlePickerSearch() {
   const q = pickerQuery.value.trim()
   if (!q) return
@@ -87,6 +92,7 @@ async function handlePickerSearch() {
   }
 }
 
+// Sets the room's current video to the chosen item.
 function selectMedia(item) {
   socket.send('playback.set_media', { provider: item.provider, id: item.id })
   pickerOpen.value = false
@@ -96,21 +102,23 @@ function selectMedia(item) {
 
 const inviteLink = computed(() => `${window.location.origin}/room/${roomCode.value}`)
 
+// Copies the room's invite link to the clipboard.
 async function copyInviteLink() {
   try {
     await navigator.clipboard.writeText(inviteLink.value)
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
   } catch {
-    // Presse-papiers indisponible (contexte non securise, permission refusee...) :
-    // le lien reste visible et selectionnable a la main.
+    // Clipboard unavailable (insecure context, permission denied...): the
+    // link stays visible and selectable by hand.
   }
 }
 
-// Historique (REST, pagine, plus recent en premier) + messages vus depuis la
-// connexion WS (deja chronologiques) : on affiche l'un a la suite de l'autre.
+// History (REST, paginated, most recent first) + messages seen since the
+// WS connection (already chronological): displayed one after the other.
 const allMessages = computed(() => [...history.value, ...messages.value])
 
+// Scrolls the chat panel to the latest message.
 function scrollToBottom() {
   requestAnimationFrame(() => {
     if (chatEl.value) chatEl.value.scrollTop = chatEl.value.scrollHeight
@@ -122,10 +130,10 @@ watch(() => allMessages.value.length, scrollToBottom)
 onMounted(async () => {
   if (!user.value) await loadUser()
 
-  // Verifie que la salle existe reellement AVANT d'afficher quoi que ce
-  // soit de la salle : sans ca, une salle inexistante affichait quand meme
-  // tout le cadre (chat, composer...) avec juste un message d'erreur noye
-  // dedans, comme si on avait presque reussi a y entrer.
+  // Check that the room actually exists BEFORE showing anything about it:
+  // without this, a non-existent room would still display the whole frame
+  // (chat, composer...) with just an error message buried inside, as if
+  // we had almost managed to enter it.
   try {
     await getRoom(token.value, roomCode.value)
   } catch {
@@ -139,7 +147,7 @@ onMounted(async () => {
     const recent = await listRoomMessages(token.value, roomCode.value)
     history.value = recent.reverse()
   } catch {
-    // L'historique est secondaire : si ca echoue, le chat live fonctionne quand meme.
+    // History is secondary: if it fails, live chat still works.
   }
 
   socket.connect()
@@ -152,6 +160,7 @@ onBeforeUnmount(() => {
   socket.close()
 })
 
+// Sends the composer's current message.
 function handleSend() {
   const content = newMessage.value.trim()
   if (!content) return
@@ -159,6 +168,7 @@ function handleSend() {
   newMessage.value = ''
 }
 
+// Leaves the room and returns to the rooms lobby.
 function leaveToLobby() {
   router.push('/rooms')
 }

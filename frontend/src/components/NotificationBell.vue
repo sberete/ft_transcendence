@@ -1,12 +1,14 @@
 <script setup>
+// Navbar bell: unread badge, dropdown list, polling refresh, and
+// navigation to the relevant page when a notification is clicked.
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useNotifications } from '../services/notifications'
 
-// Pas de WebSocket global sur ce projet (la connexion n'existe que dans un
-// salon) : les notifications sont recuperees par polling, pas pousses en
-// temps reel. Voir idea.txt / docs pour la decision.
+// No global WebSocket on this project (the connection only exists inside
+// a room): notifications are fetched by polling, not pushed in real time.
+// See idea.txt / docs for that decision.
 const POLL_MS = 20000
 
 const { t } = useI18n()
@@ -17,6 +19,7 @@ const open = ref(false)
 const panel = ref(null)
 let pollTimer = null
 
+// Builds the display text for one notification from its kind/payload.
 function describe(n) {
   return t(`notifications.kinds.${n.kind}`, {
     username: n.payload.from_username,
@@ -24,6 +27,7 @@ function describe(n) {
   })
 }
 
+// Formats an ISO timestamp as a short relative "time ago" label.
 function timeAgo(iso) {
   const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
   if (diffSec < 60) return t('notifications.timeAgo.now')
@@ -35,6 +39,7 @@ function timeAgo(iso) {
   return t('notifications.timeAgo.days', { count: diffD }, diffD)
 }
 
+// Marks a notification read and navigates to what it refers to.
 async function handleClick(n) {
   await markRead(n.id)
   open.value = false
@@ -45,6 +50,7 @@ async function handleClick(n) {
   }
 }
 
+// Closes the dropdown when clicking anywhere outside it.
 function onClickOutside(event) {
   if (panel.value && !panel.value.contains(event.target)) {
     open.value = false

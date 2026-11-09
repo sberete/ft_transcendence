@@ -1,3 +1,7 @@
+// Reusable Axum extractor: any handler that takes `AuthUser` as a
+// parameter automatically requires a valid Bearer token, with no
+// repeated boilerplate in each handler.
+
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use sqlx::PgPool;
@@ -12,6 +16,8 @@ pub struct AuthUser {
 impl FromRequestParts<PgPool> for AuthUser {
     type Rejection = ApiError;
 
+    // Reads the Bearer token from the Authorization header, validates
+    // the session, and bumps `last_seen_at` as an online-presence signal.
     async fn from_request_parts(parts: &mut Parts, pool: &PgPool)
         -> Result<Self, Self::Rejection>
     {
@@ -27,8 +33,7 @@ impl FromRequestParts<PgPool> for AuthUser {
             .map_err(|_| ApiError::Internal)?
             .ok_or(ApiError::Unauthorized)?;
 
-        // Best-effort : sert de signal de presence pour le statut "en ligne".
-        // Une erreur ici ne doit jamais faire echouer la requete elle-meme.
+        // Best-effort: an error here must never fail the request itself.
         if let Err(err) = sqlx::query("UPDATE users SET last_seen_at = now() WHERE id = $1")
             .bind(user_id)
             .execute(pool)

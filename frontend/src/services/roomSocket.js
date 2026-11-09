@@ -1,15 +1,18 @@
+// WebSocket client for a single room: connects, authenticates, joins, and
+// exposes the live room/members/media/playback/chat state as refs. See
+// docs/websocket.md for the wire protocol this implements.
 import { ref } from 'vue'
 import { BASE_URL } from './api'
 
 const RECONNECT_BASE_MS = 1000
 const RECONNECT_MAX_MS = 30000
 
-// Une instance par salle visitee (pas un singleton partage comme useAuth) :
-// cree a l'entree dans la salle, fermee a la sortie.
-// `self` (ref vers {id, username, avatar_url}) : room.state du serveur ne liste
-// que les AUTRES membres deja presents (pas soi-meme), donc on se rajoute cote
-// client pour que la liste des participants soit complete. C'est un ref (pas
-// une valeur figee) car le profil peut encore charger au moment de connect().
+// One instance per room visited (not a shared singleton like useAuth):
+// created on entering the room, closed on leaving.
+// `self` (ref to {id, username, avatar_url}): the server's room.state only
+// lists the OTHER members already present (not oneself), so we add
+// ourselves back on the client so the participant list is complete. It's a
+// ref (not a frozen value) because the profile may still be loading at connect() time.
 export function createRoomSocket(token, self) {
   const connected = ref(false)
   const room = ref(null)
@@ -26,12 +29,14 @@ export function createRoomSocket(token, self) {
   let manuallyClosed = false
   const listeners = []
 
+  // Sends one JSON frame if the socket is currently open.
   function send(type, payload = {}) {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type, ...payload }))
     }
   }
 
+  // Parses an incoming frame and updates local state for its type.
   function handleMessage(event) {
     let msg
     try {
@@ -60,9 +65,9 @@ export function createRoomSocket(token, self) {
         break
       case 'room.member_left':
         members.value = members.value.filter((m) => m.id !== msg.user_id)
-        // Si qui part etait proprietaire, la salle a ete transferee a qui
-        // est present depuis le plus longtemps (voir registry::leave cote
-        // backend) : refleter ca tout de suite, sans attendre un room.state.
+        // If the one leaving was the owner, ownership was transferred to
+        // whoever has been present the longest (see registry::leave on the
+        // backend): reflect that immediately, without waiting for a room.state.
         if (msg.new_owner_id != null && room.value) {
           room.value = { ...room.value, owner_id: msg.new_owner_id }
         }
@@ -71,14 +76,14 @@ export function createRoomSocket(token, self) {
         messages.value = [...messages.value, msg]
         break
       case 'playback.state': {
-        // playback.state est diffuse pour CHAQUE action (play/pause/seek),
-        // pas seulement un changement de video, mais `media` est toujours
-        // present dans le message. Le reassigner sans condition donne un
-        // nouvel objet a chaque fois (JSON fraichement parse) meme quand
-        // c'est exactement la meme video : ca suffisait a faire recreer le
-        // lecteur (RoomView.vue observe media.value) a chaque clic play/
-        // pause, remettant la lecture a zero a repetition. On ne reassigne
-        // donc que si le contenu a reellement change.
+        // playback.state is broadcast for EVERY action (play/pause/seek),
+        // not just a media change, but `media` is always present in the
+        // message. Reassigning it unconditionally would produce a new
+        // object every time (freshly parsed JSON) even for the exact same
+        // video - that alone was enough to make the player remount
+        // (RoomView.vue watches media.value) on every play/pause click,
+        // resetting playback to zero repeatedly. So we only reassign when
+        // the content actually changed.
         const same = media.value?.provider === msg.media?.provider && media.value?.id === msg.media?.id
         if (!same) media.value = msg.media
         playback.value = { playing: msg.playing, position: msg.position, server_time: msg.server_time }
@@ -94,6 +99,7 @@ export function createRoomSocket(token, self) {
     for (const listener of listeners) listener(msg)
   }
 
+  // Opens the WebSocket connection and wires up its handlers.
   function connect() {
     manuallyClosed = false
     socket = new WebSocket(`${BASE_URL.replace(/^http/, 'ws')}/api/ws`)
@@ -103,7 +109,7 @@ export function createRoomSocket(token, self) {
 
     socket.onclose = (event) => {
       connected.value = false
-      // 4401 = token invalide : inutile de reessayer, il ne redeviendra pas valide.
+      // 4401 = invalid token: no point retrying, it won't become valid again.
       if (manuallyClosed || event.code === 4401) return
 
       reconnectTimer = setTimeout(connect, reconnectDelay)
@@ -111,11 +117,13 @@ export function createRoomSocket(token, self) {
     }
   }
 
+  // Joins (or queues joining, if not yet connected) the given room code.
   function joinRoom(code) {
     currentCode = code
     if (connected.value) send('room.join', { code })
   }
 
+  // Leaves the current room and resets all local room state.
   function leaveRoom() {
     send('room.leave')
     currentCode = null
@@ -126,15 +134,18 @@ export function createRoomSocket(token, self) {
     messages.value = []
   }
 
+  // Sends a chat message to the current room.
   function sendChat(content) {
     send('chat.send', { content })
   }
 
-  // Pour frontend-sync : ecouter playback.state sans dupliquer ce fichier.
+  // Registers an extra listener for every incoming frame.
+  // Used by playbackSync.js to listen for playback.state without duplicating this file.
   function onMessage(listener) {
     listeners.push(listener)
   }
 
+  // Closes the connection for good (no auto-reconnect afterwards).
   function close() {
     manuallyClosed = true
     clearTimeout(reconnectTimer)

@@ -1,5 +1,5 @@
-// Source : Internet Archive, collection "feature_films" (films du domaine public).
-// API publique, sans cle : https://archive.org/developers/
+// Source: Internet Archive, "feature_films" collection (public domain
+// movies). Public API, no key required: https://archive.org/developers/
 
 use reqwest::Url;
 use serde::Deserialize;
@@ -22,8 +22,8 @@ struct SearchDocs {
     docs: Vec<SearchDoc>,
 }
 
-// `title` et `year` sont parfois des chaines, parfois des nombres ou des tableaux :
-// on les garde en Value et on les normalise nous-memes.
+// `title` and `year` are sometimes strings, sometimes numbers or
+// arrays: kept as a raw Value and normalized ourselves.
 #[derive(Deserialize)]
 struct SearchDoc {
     identifier: String,
@@ -54,8 +54,8 @@ struct MetadataFile {
     height: Option<String>,
 }
 
-// Les identifiants Archive ne contiennent que [A-Za-z0-9._-].
-// Les valider empeche d'injecter "../" ou une autre URL dans le chemin.
+// Archive identifiers only ever contain [A-Za-z0-9._-]. Validating this
+// prevents injecting "../" or some other URL into the request path.
 pub fn is_valid_id(id: &str)
     -> bool
 {
@@ -65,12 +65,14 @@ pub fn is_valid_id(id: &str)
         && id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
+// Searches the feature_films collection by title and maps the results
+// to our common MediaItem shape.
 pub async fn search(client: &MediaClient, query: &str)
     -> Result<Vec<MediaItem>, reqwest::Error>
 {
-    // La recherche Archive utilise la syntaxe Lucene : sans nettoyage, un
-    // utilisateur pourrait ecrire `x) OR mediatype:(texts` et elargir la requete.
-    // On ne garde que lettres, chiffres et espaces.
+    // Archive search uses Lucene syntax: without sanitizing, a user could
+    // write `x) OR mediatype:(texts` and broaden the query. Only letters,
+    // digits and spaces are kept.
     let terms: String = query
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
@@ -114,6 +116,8 @@ pub async fn search(client: &MediaClient, query: &str)
     Ok(items)
 }
 
+// Fetches an item's metadata and derives its playable MP4 streams from
+// the file listing.
 pub async fn details(client: &MediaClient, id: &str)
     -> Result<MediaDetails, reqwest::Error>
 {
@@ -138,7 +142,7 @@ pub async fn details(client: &MediaClient, id: &str)
         .collect();
 
     let meta = body.metadata;
-    // `year` est souvent absent, `date` vaut "1968" ou "1968-10-01".
+    // `year` is often absent, `date` is "1968" or "1968-10-01".
     let year = meta
         .year
         .or(meta.date)
@@ -161,8 +165,8 @@ pub async fn details(client: &MediaClient, id: &str)
     })
 }
 
-// Ajoute un segment de chemin en l'encodant (espaces, '#', '?'...) plutot que
-// de concatener des chaines.
+// Appends a path segment with proper encoding (spaces, '#', '?'...)
+// instead of concatenating raw strings.
 fn join_segment(base: &str, segment: &str)
     -> Url
 {
@@ -174,6 +178,8 @@ fn join_segment(base: &str, segment: &str)
     url
 }
 
+// Normalizes Archive's inconsistent JSON shape (string, number, or
+// array) for a metadata field into a plain string.
 fn value_to_string(value: &Value)
     -> Option<String>
 {

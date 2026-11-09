@@ -1,11 +1,12 @@
 <script setup>
+// Horizontally scrollable row of MediaCards, backed by one search query.
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MediaCard from './MediaCard.vue'
 import { searchMedia } from '../services/api'
 import { useAuth } from '../services/auth'
 
-// Une rangee = une recherche thematique ("chaplin" sur Archive, "animation" sur PeerTube...).
+// One row = one themed search ("chaplin" on Archive, "animation" on PeerTube...).
 const props = defineProps({
   title: { type: String, required: true },
   query: { type: String, required: true },
@@ -18,6 +19,7 @@ const items = ref([])
 const loading = ref(true)
 const track = ref(null)
 
+// Loads this row's results once on mount.
 onMounted(async () => {
   try {
     items.value = await searchMedia(token.value, props.query, props.provider)
@@ -28,6 +30,7 @@ onMounted(async () => {
   }
 })
 
+// Scrolls the track one "page" left (-1) or right (1).
 function scroll(direction) {
   const el = track.value
   el.scrollBy({ left: direction * el.clientWidth * 0.85, behavior: 'smooth' })
@@ -35,7 +38,7 @@ function scroll(direction) {
 </script>
 
 <template>
-  <!-- Une rangee vide (source en panne, aucun resultat) disparait au lieu d'afficher un trou. -->
+  <!-- An empty row (source down, no results) disappears instead of showing a gap. -->
   <section v-if="loading || items.length > 0" class="row">
     <div class="row-head">
       <h2>{{ title }}</h2>
@@ -98,7 +101,7 @@ function scroll(direction) {
 
 .slot {
   flex: 0 0 clamp(200px, 22vw, 280px);
-  /* Sans ca, min-width: auto laisse une grande image elargir la carte. */
+  /* Without this, min-width: auto lets a large image stretch the card. */
   min-width: 0;
   scroll-snap-align: start;
 }
@@ -142,7 +145,7 @@ function scroll(direction) {
   opacity: 1;
 }
 
-/* Sur ecran tactile on defile au doigt : pas de fleches. */
+/* Touch screens scroll by swiping: no arrows needed. */
 @media (hover: none) {
   .arrow {
     display: none;

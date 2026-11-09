@@ -1,14 +1,15 @@
+// Logged-in user's profile, shared between the header and the profile page
+// so that changing an avatar is reflected everywhere without a reload.
 import { ref } from 'vue'
 import { getMe } from './api'
 import { useAuth } from './auth'
 
-// Profil de l'utilisateur connecte, partage entre le header et la page profil
-// pour que changer d'avatar se voie partout sans recharger.
 const user = ref(null)
 
 export function useCurrentUser() {
   const { token, clearToken } = useAuth()
 
+  // Fetches (or clears) the current profile based on the session token.
   async function load() {
     if (!token.value) {
       user.value = null
@@ -17,12 +18,13 @@ export function useCurrentUser() {
     try {
       user.value = await getMe(token.value)
     } catch {
-      // Token expire ou revoque cote serveur.
+      // Token expired or revoked server-side.
       clearToken()
       user.value = null
     }
   }
 
+  // Overwrites the cached profile (e.g. right after an update call).
   function setUser(value) {
     user.value = value
   }

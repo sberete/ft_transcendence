@@ -1,3 +1,8 @@
+// HTTP handlers for the current user's own profile and avatar: read,
+// rename, upload a new avatar (validated by real file signature, not
+// the declared Content-Type), and delete it, with disk cleanup on both
+// replace and delete.
+
 use axum::extract::{Multipart, State};
 use axum::Json;
 use rand::RngCore;
@@ -8,8 +13,8 @@ use crate::auth::AuthUser;
 use crate::errors::ApiError;
 
 const MAX_AVATAR_BYTES: usize = 2 * 1024 * 1024;
-// Doit matcher VARCHAR(32) sur users.username (migration 0001), voir
-// auth::handlers::USERNAME_MAX_LEN pour la meme contrainte a l'inscription.
+// Must match VARCHAR(32) on users.username (migration 0001); see
+// auth::handlers::USERNAME_MAX_LEN for the same constraint at signup.
 const USERNAME_MAX_LEN: usize = 32;
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -25,13 +30,16 @@ pub struct UpdateProfileRequest {
     username: Option<String>,
 }
 
+// Returns the caller's own profile.
 pub async fn get_me(auth: AuthUser, State(pool): State<PgPool>)
     -> Result<Json<UserProfile>, ApiError>
 {
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
 
-pub async fn update_me(auth: AuthUser, State(pool): State<PgPool>, 
+// Updates the caller's username (when provided), after validating its
+// length, then returns the refreshed profile.
+pub async fn update_me(auth: AuthUser, State(pool): State<PgPool>,
     Json(payload): Json<UpdateProfileRequest>)
         -> Result<Json<UserProfile>, ApiError>
 {
@@ -61,6 +69,9 @@ pub async fn update_me(auth: AuthUser, State(pool): State<PgPool>,
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
 
+// Accepts a multipart image upload, validates its real type and size,
+// writes it to disk under a random name, points the profile at it, and
+// cleans up whatever avatar file it replaced.
 pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multipart: Multipart) -> Result<Json<UserProfile>, ApiError>
 {
     let field = multipart
@@ -74,10 +85,10 @@ pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multi
         return Err(ApiError::BadRequest("avatar must be under 2MB".into()));
     }
 
-    // Ne fait jamais confiance au Content-Type multipart declare par le
-    // client (n'importe qui peut le mentir) : determine le vrai type
-    // depuis la signature des octets avant de choisir l'extension avec
-    // laquelle le fichier sera servi statiquement (voir sniff_image_type).
+    // Never trusts the multipart Content-Type declared by the client
+    // (anyone can lie about it): determines the real type from the byte
+    // signature before picking the extension the file will be served
+    // under statically (see sniff_image_type).
     let extension = sniff_image_type(&data)
         .ok_or_else(|| ApiError::BadRequest("avatar must be a real png, jpeg or webp file".into()))?;
 
@@ -90,8 +101,8 @@ pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multi
         .await
         .map_err(|_| ApiError::Internal)?;
 
-    // Recupere l'ancien avatar AVANT d'ecraser la colonne : une fois le
-    // nouveau enregistre, on n'a plus aucune trace de quel fichier nettoyer.
+    // Fetches the previous avatar BEFORE overwriting the column: once the
+    // new one is saved, there's no trace left of which file to clean up.
     let previous_avatar_url = current_avatar_url(&pool, auth.user_id).await?;
 
     let avatar_url = format!("/uploads/avatars/{filename}");
@@ -109,6 +120,7 @@ pub async fn upload_avatar(auth: AuthUser, State(pool): State<PgPool>, mut multi
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
 
+// Clears the caller's avatar and removes the underlying file from disk.
 pub async fn delete_avatar(auth: AuthUser, State(pool): State<PgPool>) -> Result<Json<UserProfile>, ApiError>
 {
     let previous_avatar_url = current_avatar_url(&pool, auth.user_id).await?;
@@ -126,6 +138,7 @@ pub async fn delete_avatar(auth: AuthUser, State(pool): State<PgPool>) -> Result
     fetch_profile(&pool, auth.user_id).await.map(Json)
 }
 
+// Loads one user's public profile fields.
 async fn fetch_profile(pool: &PgPool, user_id: i64) -> Result<UserProfile, ApiError>
 {
     sqlx::query_as("SELECT id, username, email, avatar_url FROM users WHERE id = $1")
@@ -135,6 +148,7 @@ async fn fetch_profile(pool: &PgPool, user_id: i64) -> Result<UserProfile, ApiEr
         .map_err(|_| ApiError::Internal)
 }
 
+// Reads just the current avatar_url, used before overwriting or clearing it.
 async fn current_avatar_url(pool: &PgPool, user_id: i64) -> Result<Option<String>, ApiError>
 {
     let row: (Option<String>,) = sqlx::query_as("SELECT avatar_url FROM users WHERE id = $1")
@@ -145,11 +159,11 @@ async fn current_avatar_url(pool: &PgPool, user_id: i64) -> Result<Option<String
     Ok(row.0)
 }
 
-// Best-effort : un avatar_url ne pointe jamais que vers un fichier qu'on a
-// nous-meme ecrit dans uploads/avatars/ (jamais une URL externe, voir le
-// manuel section Securite). Si la suppression echoue, on ne fait pas
-// echouer la requete pour autant - un fichier orphelin ne casse rien,
-// contrairement a une mise a jour de profil qui semblerait avoir rate.
+// Best-effort: an avatar_url only ever points to a file we wrote
+// ourselves under uploads/avatars/ (never an external URL, see the
+// manual's Security section). If the removal fails, the request still
+// doesn't fail because of it - an orphaned file breaks nothing, unlike
+// a profile update that would otherwise look like it failed.
 async fn remove_avatar_file(avatar_url: &str)
 {
     let path = avatar_url.trim_start_matches('/');
@@ -158,6 +172,7 @@ async fn remove_avatar_file(avatar_url: &str)
     }
 }
 
+// Generates a random filename stem for a newly uploaded avatar.
 fn random_filename_stem() -> String
 {
     let mut raw = [0u8; 16];
@@ -165,8 +180,8 @@ fn random_filename_stem() -> String
     hex::encode(raw)
 }
 
-// Identifie png/jpeg/webp par leur signature d'octets plutot que par un
-// Content-Type declare (facile a mentir dans un corps multipart).
+// Identifies png/jpeg/webp from their byte signature rather than a
+// declared Content-Type (easy to lie about in a multipart body).
 fn sniff_image_type(data: &[u8]) -> Option<&'static str>
 {
     if data.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) {

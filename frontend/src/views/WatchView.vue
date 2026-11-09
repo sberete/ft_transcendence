@@ -1,4 +1,6 @@
 <script setup>
+// Solo playback page: loads one media item's details and streams it,
+// independent of any room.
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -19,6 +21,7 @@ const expanded = ref(false)
 
 const description = computed(() => htmlToText(media.value?.description))
 
+// Loads the media item's details whenever the route's provider/id changes.
 watch(
   () => [route.params.provider, route.params.id],
   async ([provider, id]) => {
@@ -82,7 +85,7 @@ watch(
       </div>
 
       <div v-if="description" class="panel description">
-        <!-- Texte brut uniquement (voir htmlToText) : jamais de v-html sur du contenu externe. -->
+        <!-- Plain text only (see htmlToText): never v-html on external content. -->
         <p :class="{ clamped: !expanded }">{{ description }}</p>
         <button v-if="description.length > 280" class="toggle" @click="expanded = !expanded">
           {{ expanded ? t('watch.showLess') : t('watch.showMore') }}

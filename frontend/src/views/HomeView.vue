@@ -1,4 +1,6 @@
 <script setup>
+// Home page: hero banner, recommendations, and themed rows when logged
+// in; a marketing landing page otherwise.
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import HeroBanner from '../components/HeroBanner.vue'
@@ -9,12 +11,12 @@ import { useAuth } from '../services/auth'
 const { t } = useI18n()
 const { token } = useAuth()
 
-// Video mise en avant : Big Buck Bunny (Blender Foundation, licence CC-BY) sur Framatube.
+// Featured video: Big Buck Bunny (Blender Foundation, CC-BY license) on Framatube.
 const FEATURED = { provider: 'peertube', id: '1f5bfc59-998b-41b3-9be3-e8084ad1a2a1' }
 
-// Chaque rangee est une recherche ciblee sur une source. `query` part vers le
-// backend tel quel (termes de recherche, jamais traduits) ; seul `titleKey`
-// (le libelle affiche) suit la langue active.
+// Each row is a search targeted at one source. `query` goes to the backend
+// as-is (search terms, never translated); only `titleKey` (the displayed
+// label) follows the active locale.
 const ROWS = [
   { titleKey: 'home.rows.animation', query: 'blender', provider: 'peertube' },
   { titleKey: 'home.rows.chaplin', query: 'chaplin', provider: 'archive' },

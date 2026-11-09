@@ -1,4 +1,5 @@
-// Google : OpenID Connect. https://developers.google.com/identity/protocols/oauth2/web-server
+// Google-specific OAuth wiring (OpenID Connect).
+// https://developers.google.com/identity/protocols/oauth2/web-server
 
 use reqwest::Url;
 use serde::Deserialize;
@@ -23,6 +24,7 @@ struct UserInfo {
     name: Option<String>,
 }
 
+// Builds the URL the browser is redirected to, to start the Google consent screen.
 pub fn authorize_url(creds: &Credentials, redirect_uri: &str, state: &str)
     -> Url
 {
@@ -33,8 +35,8 @@ pub fn authorize_url(creds: &Credentials, redirect_uri: &str, state: &str)
             ("redirect_uri", redirect_uri),
             ("response_type", "code"),
             ("scope", "openid email profile"),
-            // Affiche toujours l'ecran "Choisir un compte", au lieu de
-            // reconnecter d'office le compte deja ouvert dans le navigateur.
+            // Always shows the "Choose an account" screen, instead of silently
+            // reconnecting whichever account is already open in the browser.
             ("prompt", "select_account"),
             ("state", state),
         ],
@@ -42,6 +44,8 @@ pub fn authorize_url(creds: &Credentials, redirect_uri: &str, state: &str)
     .expect("hardcoded base URL is valid")
 }
 
+// Exchanges the authorization code for an access token, then fetches the
+// user's profile; fails if the provider didn't return a verified email.
 pub async fn fetch_profile(http: &reqwest::Client, creds: &Credentials, redirect_uri: &str, code: &str)
     -> Result<OAuthProfile, OAuthError>
 {
@@ -74,7 +78,7 @@ pub async fn fetch_profile(http: &reqwest::Client, creds: &Credentials, redirect
         _ => return Err(OAuthError::EmailNotVerified),
     };
 
-    // Pseudo propose : le nom affiche, sinon la partie avant le @.
+    // Suggested username: the display name, otherwise the part before the @.
     let username_hint = info
         .name
         .unwrap_or_else(|| email.split('@').next().unwrap_or_default().to_string());

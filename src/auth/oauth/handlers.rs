@@ -1,3 +1,7 @@
+// HTTP handlers for the OAuth flow: listing enabled providers, starting
+// the redirect to the provider, and handling its callback (CSRF-safe via
+// a state cookie, account linking by verified email).
+
 use axum::extract::{Path, Query, State};
 use axum::http::header::{COOKIE, REFERER, SET_COOKIE};
 use axum::http::HeaderMap;
@@ -11,7 +15,7 @@ use super::{github, google, OAuthConfig, OAuthError, OAuthProfile, Provider};
 use crate::auth::session;
 
 const STATE_COOKIE: &str = "oauth_state";
-// Retient depuis quel front la connexion a ete lancee (Vite ou nginx).
+// Remembers which frontend the login was started from (Vite or nginx).
 const RETURN_COOKIE: &str = "oauth_return";
 const COOKIE_TTL_SECONDS: u32 = 600;
 const MAX_USERNAME_BASE_LEN: usize = 24;
@@ -21,11 +25,11 @@ const USERNAME_ATTEMPTS: usize = 5;
 pub struct CallbackParams {
     code: Option<String>,
     state: Option<String>,
-    // Present si l'utilisateur a clique "Refuser" chez le fournisseur.
+    // Present if the user clicked "Deny" on the provider's side.
     error: Option<String>,
 }
 
-// Pourquoi un callback a echoue. Jamais montre a l'utilisateur, seulement logue.
+// Why a callback failed. Never shown to the user, only logged.
 enum CallbackError {
     NotConfigured,
     Denied(String),
@@ -35,7 +39,7 @@ enum CallbackError {
     Database(sqlx::Error),
 }
 
-// Liste des fournisseurs actives (configures dans .env).
+// Lists the providers that are actually enabled (configured in .env).
 pub async fn providers(Extension(config): Extension<OAuthConfig>)
     -> Json<Vec<Provider>>
 {
@@ -47,6 +51,8 @@ pub async fn providers(Extension(config): Extension<OAuthConfig>)
     Json(enabled)
 }
 
+// Redirects the browser to the provider's consent screen, after setting
+// a CSRF state cookie and remembering which frontend to return to.
 pub async fn start(
     Path(provider): Path<Provider>,
     headers: HeaderMap,
@@ -54,22 +60,22 @@ pub async fn start(
 )
     -> Response
 {
-    // On renverra le navigateur la d'ou il vient (verifie contre la liste autorisee).
+    // We'll send the browser back where it came from (checked against the allow-list).
     let referer = headers.get(REFERER).and_then(|value| value.to_str().ok());
     let frontend = config.frontend_for(referer);
 
-    // Le bouton est toujours affiche cote front. Si le fournisseur n'est pas
-    // configure dans .env, on renvoie vers le front avec un code d'erreur,
-    // plutot que d'afficher une erreur JSON brute dans le navigateur.
+    // The button is always shown on the frontend. If the provider isn't
+    // configured in .env, redirect back to the frontend with an error code,
+    // rather than showing a raw JSON error in the browser.
     let Some(creds) = config.credentials(provider) else {
         log::warn!("oauth start for {provider:?} but its client id/secret are not set in the environment");
         return Redirect::to(&format!("{frontend}/oauth/callback?error=oauth_unavailable")).into_response();
     };
 
-    // `state` : valeur aleatoire envoyee au fournisseur ET posee en cookie.
-    // Au retour, les deux doivent correspondre. Sans ca, un attaquant pourrait
-    // faire ouvrir a sa victime un callback contenant SON code, et la connecter
-    // a son insu sur le compte de l'attaquant (CSRF de connexion).
+    // `state`: a random value sent to the provider AND stored in a cookie.
+    // On return, both must match. Without this, an attacker could get their
+    // victim to open a callback containing THEIR OWN code, logging the
+    // victim into the attacker's account without realizing it (login CSRF).
     let state = random_state();
     let redirect_uri = config.redirect_uri(provider);
 
@@ -78,7 +84,7 @@ pub async fn start(
         Provider::Github => github::authorize_url(creds, &redirect_uri, &state),
     };
 
-    // AppendHeaders : deux en-tetes Set-Cookie, le second ne remplace pas le premier.
+    // AppendHeaders: two Set-Cookie headers, the second doesn't overwrite the first.
     let cookies = AppendHeaders([
         (SET_COOKIE, cookie(&config, STATE_COOKIE, &state, COOKIE_TTL_SECONDS)),
         (SET_COOKIE, cookie(&config, RETURN_COOKIE, frontend, COOKIE_TTL_SECONDS)),
@@ -86,8 +92,8 @@ pub async fn start(
     (cookies, Redirect::to(url.as_str())).into_response()
 }
 
-// Appele par le navigateur au retour du fournisseur : on repond toujours par
-// une redirection vers le front, jamais par du JSON.
+// Called by the browser when the provider redirects back: always answers
+// with a redirect to the frontend, never with raw JSON.
 pub async fn callback(
     Path(provider): Path<Provider>,
     Query(params): Query<CallbackParams>,
@@ -97,13 +103,13 @@ pub async fn callback(
 )
     -> Response
 {
-    // Un cookie est modifiable par le client : sa valeur est revalidee ici.
+    // A cookie can be edited by the client: its value is re-validated here.
     let return_cookie = read_cookie(&headers, RETURN_COOKIE);
     let frontend = config.frontend_for(return_cookie.as_deref());
 
     let target = match finish_login(provider, params, &headers, &pool, &config).await {
-        // Le token est place dans le fragment (#...) : cette partie de l'URL
-        // n'est jamais envoyee a un serveur, donc absente des logs d'acces.
+        // The token is placed in the fragment (#...): this part of the URL
+        // is never sent to a server, so it never ends up in access logs.
         Ok(token) => format!("{frontend}/oauth/callback#token={token}"),
         Err(err) => {
             log::warn!("oauth callback failed for {provider:?}: {}", describe(&err));
@@ -111,7 +117,7 @@ pub async fn callback(
         }
     };
 
-    // Ces cookies ne servent qu'une fois : on les efface dans tous les cas.
+    // These cookies are single-use: clear them in every case.
     let cookies = AppendHeaders([
         (SET_COOKIE, cookie(&config, STATE_COOKIE, "", 0)),
         (SET_COOKIE, cookie(&config, RETURN_COOKIE, "", 0)),
@@ -119,6 +125,9 @@ pub async fn callback(
     (cookies, Redirect::to(&target)).into_response()
 }
 
+// Validates the callback (state, error, code), exchanges the code for a
+// profile with the provider, resolves/creates the local account, and
+// opens a session for it.
 async fn finish_login(
     provider: Provider,
     params: CallbackParams,
@@ -156,10 +165,13 @@ async fn finish_login(
     session::create_session(pool, user_id).await.map_err(CallbackError::Database)
 }
 
+// Resolves the local user behind an OAuth profile: an already-linked
+// account, an existing account with the same (verified) email, or a
+// brand new account - in that order.
 async fn find_or_create_user(pool: &PgPool, provider: Provider, profile: &OAuthProfile)
     -> Result<i64, sqlx::Error>
 {
-    // 1. Identite externe deja connue : c'est le cas normal d'une reconnexion.
+    // 1. External identity already known: the normal case for a returning user.
     let linked: Option<(i64,)> =
         sqlx::query_as("SELECT user_id FROM oauth_accounts WHERE provider = $1 AND provider_user_id = $2")
             .bind(provider.as_str())
@@ -172,14 +184,14 @@ async fn find_or_create_user(pool: &PgPool, provider: Provider, profile: &OAuthP
 
     let mut tx = pool.begin().await?;
 
-    // 2. Un compte existe deja avec cet email : on y rattache l'identite externe.
-    //    Acceptable uniquement parce que l'email est verifie par le fournisseur.
+    // 2. An account already exists with this email: link the external
+    //    identity to it. Only acceptable because the email is verified by the provider.
     let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE lower(email) = lower($1)")
         .bind(&profile.email)
         .fetch_optional(&mut *tx)
         .await?;
 
-    // 3. Sinon, nouveau compte sans mot de passe.
+    // 3. Otherwise, a brand new account with no password.
     let user_id = match existing {
         Some((user_id,)) => user_id,
         None => create_user(&mut tx, profile).await?,
@@ -196,14 +208,16 @@ async fn find_or_create_user(pool: &PgPool, provider: Provider, profile: &OAuthP
     Ok(user_id)
 }
 
+// Creates a brand new user from an OAuth profile, retrying with a random
+// suffix if the suggested username is already taken.
 async fn create_user(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, profile: &OAuthProfile)
     -> Result<i64, sqlx::Error>
 {
     let base = sanitize_username(&profile.username_hint);
 
-    // Le pseudo propose peut etre pris : on retente avec un suffixe aleatoire.
-    // ON CONFLICT DO NOTHING plutot qu'une erreur, car une erreur SQL
-    // annulerait toute la transaction en cours.
+    // The suggested username might be taken: retry with a random suffix.
+    // ON CONFLICT DO NOTHING rather than an error, because a SQL error
+    // would abort the whole transaction currently in progress.
     for attempt in 0..USERNAME_ATTEMPTS {
         let candidate = if attempt == 0 {
             base.clone()
@@ -229,8 +243,8 @@ async fn create_user(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, profile: &O
     Err(sqlx::Error::RowNotFound)
 }
 
-// Le nom vient du fournisseur, donc de l'exterieur : on ne garde que des
-// caracteres surs, et on respecte la limite VARCHAR(32) de la colonne.
+// The name comes from the provider, i.e. from the outside: only safe
+// characters are kept, and the column's VARCHAR(32) limit is respected.
 fn sanitize_username(hint: &str)
     -> String
 {
@@ -243,18 +257,19 @@ fn sanitize_username(hint: &str)
     if cleaned.is_empty() { "user".to_string() } else { cleaned }
 }
 
-// HttpOnly : illisible en JavaScript. SameSite=Lax : envoye lors du retour
-// depuis le fournisseur (navigation), mais pas sur les requetes d'un autre site.
+// HttpOnly: unreadable from JavaScript. SameSite=Lax: sent on the return
+// navigation from the provider, but not on requests from another site.
 fn cookie(config: &OAuthConfig, name: &str, value: &str, max_age: u32)
     -> String
 {
     let secure = if config.backend_url.starts_with("https://") { "; Secure" } else { "" };
-    // Path=/ (pas /auth/oauth) : le navigateur voit ces routes sous /api/auth/oauth
-    // depuis le passage par nginx (prefixe /api), le cookie doit donc couvrir
-    // large plutot que de dependre d'un prefixe que ce module ne connait pas.
+    // Path=/ (not /auth/oauth): behind nginx these routes are seen under
+    // /api/auth/oauth (the /api prefix), so the cookie needs to cover a
+    // broad path rather than depend on a prefix this module doesn't know about.
     format!("{name}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
 }
 
+// Reads one named cookie out of the raw Cookie header.
 fn read_cookie(headers: &HeaderMap, name: &str)
     -> Option<String>
 {
@@ -270,12 +285,14 @@ fn read_cookie(headers: &HeaderMap, name: &str)
         .map(str::to_string)
 }
 
+// Generates the random CSRF state value sent to the provider.
 fn random_state()
     -> String
 {
     random_hex(32)
 }
 
+// Generates `bytes` random bytes, hex-encoded.
 fn random_hex(bytes: usize)
     -> String
 {
@@ -284,6 +301,7 @@ fn random_hex(bytes: usize)
     hex::encode(raw)
 }
 
+// Human-readable description of a callback failure, for logging only.
 fn describe(err: &CallbackError)
     -> String
 {
@@ -301,6 +319,7 @@ fn describe(err: &CallbackError)
 mod tests {
     use super::*;
 
+    // Builds a minimal OAuthProfile for the tests below.
     fn profile(id: &str, email: &str, hint: &str)
         -> OAuthProfile
     {
@@ -311,6 +330,8 @@ mod tests {
         }
     }
 
+    // Only ASCII alphanumerics and underscore survive, and the result
+    // never exceeds the max base length or ends up empty.
     #[test]
     fn sanitize_username_keeps_only_safe_characters()
     {
@@ -321,6 +342,8 @@ mod tests {
         assert_eq!(sanitize_username(&"a".repeat(100)).len(), MAX_USERNAME_BASE_LEN);
     }
 
+    // Finds the right cookie among several, and never treats an emptied
+    // (erased) cookie as a valid value.
     #[test]
     fn read_cookie_finds_the_right_cookie()
     {
@@ -330,12 +353,12 @@ mod tests {
         headers.insert(COOKIE, "theme=dark; oauth_state=abc123; other=1".parse().unwrap());
         assert_eq!(read_cookie(&headers, STATE_COOKIE), Some("abc123".to_string()));
 
-        // Un cookie vide (apres effacement) ne doit jamais valider un state vide.
+        // An empty cookie (after being cleared) must never validate an empty state.
         headers.insert(COOKIE, "oauth_state=".parse().unwrap());
         assert_eq!(read_cookie(&headers, STATE_COOKIE), None);
     }
 
-    // Test d'integration : a besoin de la base (make dev).
+    // Integration test: needs the real database (make dev).
     //   cargo test -- --ignored
     #[tokio::test]
     #[ignore = "requires the PostgreSQL database from DATABASE_URL"]
@@ -349,7 +372,7 @@ mod tests {
         let cleanup = "DELETE FROM users WHERE email LIKE '%@oauth-test.invalid'";
         sqlx::query(cleanup).execute(&pool).await.unwrap();
 
-        // Premiere connexion : le compte est cree, sans mot de passe.
+        // First login: the account is created, with no password.
         let alice = profile("g-1", "alice@oauth-test.invalid", "Oauth Test Alice");
         let id = find_or_create_user(&pool, Provider::Google, &alice).await.unwrap();
         let row: (String, Option<String>) =
@@ -360,15 +383,15 @@ mod tests {
                 .unwrap();
         assert_eq!(row, ("OauthTestAlice".to_string(), None));
 
-        // Reconnexion : meme compte, meme si l'email a change chez le fournisseur.
+        // Returning login: same account, even if the email changed on the provider's side.
         let renamed = profile("g-1", "other@oauth-test.invalid", "Whatever");
         assert_eq!(find_or_create_user(&pool, Provider::Google, &renamed).await.unwrap(), id);
 
-        // Autre fournisseur, meme email (casse differente) : rattache au meme compte.
+        // Different provider, same email (different case): linked to the same account.
         let via_github = profile("gh-9", "ALICE@oauth-test.invalid", "alice-gh");
         assert_eq!(find_or_create_user(&pool, Provider::Github, &via_github).await.unwrap(), id);
 
-        // Autre personne, meme pseudo propose : nouveau compte avec un suffixe.
+        // Different person, same suggested username: a new account with a suffix.
         let twin = profile("g-2", "twin@oauth-test.invalid", "Oauth Test Alice");
         let twin_id = find_or_create_user(&pool, Provider::Google, &twin).await.unwrap();
         assert_ne!(twin_id, id);

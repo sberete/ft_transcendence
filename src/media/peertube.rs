@@ -1,9 +1,9 @@
-// Source : une instance PeerTube (plateforme video libre et federee).
-// API REST publique : https://docs.joinpeertube.org/api-rest-reference.html
+// Source: a PeerTube instance (free, federated video platform).
+// Public REST API: https://docs.joinpeertube.org/api-rest-reference.html
 //
-// Securite (SSRF) : le serveur n'appelle QUE l'instance configuree dans
-// PEERTUBE_URL. Le client envoie un uuid, jamais une URL ni un hote ; sinon il
-// pourrait faire interroger a notre backend n'importe quelle adresse interne.
+// Security (SSRF): the server ONLY calls the instance configured in
+// PEERTUBE_URL. The client sends a uuid, never a URL or a host;
+// otherwise it could make our backend query any internal address.
 
 use serde::Deserialize;
 
@@ -58,13 +58,15 @@ struct StreamingPlaylist {
     playlist_url: String,
 }
 
-// Format uuid v4 : 36 caracteres hexa et tirets.
+// uuid v4 format: 36 characters of hex digits and dashes.
 pub fn is_valid_id(id: &str)
     -> bool
 {
     id.len() == 36 && id.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
 }
 
+// Searches the configured instance by title and maps the results to
+// our common MediaItem shape.
 pub async fn search(client: &MediaClient, query: &str)
     -> Result<Vec<MediaItem>, reqwest::Error>
 {
@@ -77,8 +79,8 @@ pub async fn search(client: &MediaClient, query: &str)
         .query(&[
             ("search", query),
             ("count", count.as_str()),
-            // "local" : seulement les videos hebergees sur l'instance, pour que
-            // les flux viennent bien de la source qu'on a choisi de faire confiance.
+            // "local": only videos hosted on this instance, so streams
+            // actually come from the source we chose to trust.
             ("searchTarget", "local"),
             ("nsfw", "false"),
         ]);
@@ -101,6 +103,8 @@ pub async fn search(client: &MediaClient, query: &str)
     Ok(items)
 }
 
+// Fetches a video's details and builds its list of playable streams
+// (HLS master playlist plus any direct MP4 files).
 pub async fn details(client: &MediaClient, uuid: &str)
     -> Result<MediaDetails, reqwest::Error>
 {
@@ -114,8 +118,8 @@ pub async fn details(client: &MediaClient, uuid: &str)
         .get(url);
     let video: VideoDetails = client.get_json(request).await?;
 
-    // HLS en premier : une seule playlist "master" contient toutes les qualites,
-    // le lecteur choisit automatiquement selon la bande passante.
+    // HLS first: a single "master" playlist holds every quality, the
+    // player picks automatically based on bandwidth.
     let hls = video.streaming_playlists.into_iter().map(|playlist| StreamLink {
         kind: StreamKind::Hls,
         url: playlist.playlist_url,
@@ -143,13 +147,14 @@ pub async fn details(client: &MediaClient, uuid: &str)
     })
 }
 
-// PeerTube renvoie des chemins relatifs ("/lazy-static/...") : on les rattache a l'instance.
+// PeerTube returns relative paths ("/lazy-static/..."): resolved against the instance's base URL.
 fn asset_url(client: &MediaClient, path: Option<&str>)
     -> Option<String>
 {
     path.and_then(|p| client.peertube_base.join(p).ok()).map(|url| url.to_string())
 }
 
+// Extracts the year from an ISO date string ("2023-05-01...").
 fn year_of(date: Option<&str>)
     -> Option<i32>
 {

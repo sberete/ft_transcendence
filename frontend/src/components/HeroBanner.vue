@@ -1,11 +1,11 @@
 <script setup>
+// Large featured-video banner shown at the top of the home page.
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getMediaDetails } from '../services/api'
 import { useAuth } from '../services/auth'
 import { PROVIDER_LABELS, formatDuration, htmlToText } from '../services/format'
 
-// Video mise en avant en haut de l'accueil.
 const props = defineProps({
   provider: { type: String, required: true },
   id: { type: String, required: true },
@@ -16,14 +16,16 @@ const { token } = useAuth()
 const media = ref(null)
 
 const description = computed(() => htmlToText(media.value?.description))
-// L'URL vient d'une source externe : JSON.stringify la met entre guillemets
-// echappes, pour qu'une parenthese dans l'URL ne puisse pas sortir du url().
+// Builds the CSS background-image for the backdrop. The URL comes from an
+// external source: JSON.stringify wraps it in escaped quotes, so a
+// parenthesis inside the URL can't break out of url(...).
 const backdropStyle = computed(() => {
   const url = media.value?.backdrop || media.value?.thumbnail
   return url ? { backgroundImage: `url(${JSON.stringify(url)})` } : null
 })
 const watchLink = computed(() => `/watch/${props.provider}/${encodeURIComponent(props.id)}`)
 
+// Loads the featured item's details once on mount.
 onMounted(async () => {
   try {
     media.value = await getMediaDetails(token.value, props.provider, props.id)
@@ -84,7 +86,7 @@ onMounted(async () => {
   background: var(--bg-elevated) center / cover no-repeat;
 }
 
-/* Degrade pour que le texte reste lisible quelle que soit l'image. */
+/* Gradient so the text stays readable regardless of the image. */
 .shade {
   position: absolute;
   inset: 0;

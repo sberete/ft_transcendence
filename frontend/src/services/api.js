@@ -1,8 +1,13 @@
-// Origine publique du site : nginx sert le front ET fait reverse-proxy vers
-// le backend (prefixe /api, voir docker/frontend/nginx.conf). Le navigateur
-// ne parle jamais au backend en direct - HTTPS de bout en bout, meme origine.
+// Thin wrapper around fetch for every backend call: adds the JSON content
+// type (unless sending FormData), the base URL, and turns non-2xx
+// responses into thrown errors with the backend's own message.
+
+// Public origin of the site: nginx serves the frontend AND reverse-proxies
+// to the backend (prefix /api, see docker/frontend/nginx.conf). The browser
+// never talks to the backend directly - HTTPS end to end, same origin.
 export const BASE_URL = 'https://localhost:8080'
 
+// Shared fetch helper: builds the request, parses JSON if present, throws on error.
 async function request(path, options = {}) {
   const isFormData = options.body instanceof FormData
 
@@ -24,6 +29,7 @@ async function request(path, options = {}) {
   return body
 }
 
+// Creates a new account.
 export function signup(username, email, password) {
   return request('/auth/signup', {
     method: 'POST',
@@ -31,6 +37,7 @@ export function signup(username, email, password) {
   })
 }
 
+// Logs in with username/email + password, returns a session token.
 export function login(identifier, password) {
   return request('/auth/login', {
     method: 'POST',
@@ -38,6 +45,7 @@ export function login(identifier, password) {
   })
 }
 
+// Invalidates the current session server-side.
 export function logout(token) {
   return request('/auth/logout', {
     method: 'POST',
@@ -45,12 +53,14 @@ export function logout(token) {
   })
 }
 
+// Fetches the logged-in user's own profile.
 export function getMe(token) {
   return request('/users/me', {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
+// Updates the logged-in user's username.
 export function updateMe(token, username) {
   return request('/users/me', {
     method: 'PATCH',
@@ -59,11 +69,11 @@ export function updateMe(token, username) {
   })
 }
 
-// XMLHttpRequest plutot que fetch : c'est la seule API avec un vrai
-// evenement de progression d'upload, cross-navigateur (fetch n'expose la
-// progression de la requete elle-meme que via un ReadableStream en corps,
-// pas supporte partout). onProgress(percent) est appele a chaque evenement
-// avec une taille connue.
+// Uploads a new avatar with live progress reporting.
+// XMLHttpRequest rather than fetch: it's the only API with a real upload
+// progress event, cross-browser (fetch only exposes the request's own
+// progress via a ReadableStream body, not supported everywhere).
+// onProgress(percent) fires on every progress event once the total size is known.
 export function uploadAvatar(token, file, onProgress) {
   const formData = new FormData()
   formData.append('file', file)
@@ -84,7 +94,7 @@ export function uploadAvatar(token, file, onProgress) {
       try {
         body = xhr.responseText ? JSON.parse(xhr.responseText) : null
       } catch {
-        // Reponse non-JSON : ne devrait pas arriver sur cette route.
+        // Non-JSON response: shouldn't happen on this route.
       }
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(body)
@@ -98,6 +108,7 @@ export function uploadAvatar(token, file, onProgress) {
   })
 }
 
+// Removes the current avatar and cleans up the file server-side.
 export function deleteAvatar(token) {
   return request('/users/me/avatar', {
     method: 'DELETE',
@@ -105,12 +116,14 @@ export function deleteAvatar(token) {
   })
 }
 
+// Lists the logged-in user's accepted friends.
 export function listFriends(token) {
   return request('/friends', {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
+// Sends a friend request by username.
 export function sendFriendRequest(token, username) {
   return request('/friends', {
     method: 'POST',
@@ -119,12 +132,14 @@ export function sendFriendRequest(token, username) {
   })
 }
 
+// Lists pending incoming friend requests.
 export function listFriendRequests(token) {
   return request('/friends/requests', {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
+// Accepts a pending friend request.
 export function acceptFriendRequest(token, fromUserId) {
   return request(`/friends/requests/${fromUserId}/accept`, {
     method: 'POST',
@@ -132,6 +147,7 @@ export function acceptFriendRequest(token, fromUserId) {
   })
 }
 
+// Removes an existing friend (symmetric on both accounts).
 export function removeFriend(token, friendId) {
   return request(`/friends/${friendId}`, {
     method: 'DELETE',
@@ -139,6 +155,7 @@ export function removeFriend(token, friendId) {
   })
 }
 
+// Searches the aggregated media catalogue, optionally scoped to one provider.
 export function searchMedia(token, query, provider = null) {
   const params = new URLSearchParams({ q: query })
   if (provider) params.set('provider', provider)
@@ -148,12 +165,14 @@ export function searchMedia(token, query, provider = null) {
   })
 }
 
+// Fetches full details (streams, title, etc.) for one media item.
 export function getMediaDetails(token, provider, id) {
   return request(`/media/${provider}/${encodeURIComponent(id)}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
+// Creates a new watch-party room.
 export function createRoom(token, name) {
   return request('/rooms', {
     method: 'POST',
@@ -162,14 +181,16 @@ export function createRoom(token, name) {
   })
 }
 
+// Fetches a room's metadata by its join code.
 export function getRoom(token, code) {
   return request(`/rooms/${code}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
-// Historique uniquement : les nouveaux messages arrivent par WebSocket
-// (evenement chat.message), pas par cette route. Plus recent en premier.
+// Loads past chat history for a room.
+// History only: new messages arrive over the WebSocket (chat.message
+// event), not through this route. Most recent first.
 export function listRoomMessages(token, code, before = null, limit = 50) {
   const params = new URLSearchParams({ limit: String(limit) })
   if (before) params.set('before', String(before))
@@ -179,18 +200,21 @@ export function listRoomMessages(token, code, before = null, limit = 50) {
   })
 }
 
-// Pas un appel fetch : le navigateur doit reellement naviguer vers cette URL,
-// puisque le backend repond par une redirection vers Google/GitHub.
+// Builds the URL that starts an OAuth login flow for a given provider.
+// Not a fetch call: the browser must actually navigate to this URL, since
+// the backend responds with a redirect to Google/GitHub.
 export function oauthStartUrl(provider) {
   return `${BASE_URL}/api/auth/oauth/${provider}/start`
 }
 
+// Lists the logged-in user's notifications.
 export function listNotifications(token) {
   return request('/notifications', {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
+// Marks a single notification as read.
 export function markNotificationRead(token, id) {
   return request(`/notifications/${id}/read`, {
     method: 'POST',
@@ -198,6 +222,7 @@ export function markNotificationRead(token, id) {
   })
 }
 
+// Marks every notification as read.
 export function markAllNotificationsRead(token) {
   return request('/notifications/read-all', {
     method: 'POST',
@@ -205,6 +230,7 @@ export function markAllNotificationsRead(token) {
   })
 }
 
+// Fetches the personalized "recommended for you" list.
 export function getRecommendations(token) {
   return request('/recommendations', {
     headers: { Authorization: `Bearer ${token}` },

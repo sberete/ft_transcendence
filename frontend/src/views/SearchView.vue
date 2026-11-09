@@ -1,4 +1,6 @@
 <script setup>
+// Search results page: source filter, client-side sort, and pagination
+// over whatever the backend returned for the current query.
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -15,15 +17,16 @@ const results = ref([])
 const loading = ref(false)
 const error = ref('')
 
-// Filtre par source : refait l'appel (le backend ne cherche que la source
-// demandee, pas un filtre applique apres coup sur un resultat deja limite).
+// Filtering by source re-runs the search (the backend only searches the
+// requested source, not a filter applied after the fact on an already-limited result).
 const provider = ref('')
-// Tri et pagination, eux, s'appliquent sur ce qu'on a deja recu : pas besoin
-// de re-interroger les sources pour ca.
+// Sorting and pagination, on the other hand, apply to what we already
+// received: no need to re-query the sources for that.
 const sortBy = ref('relevance')
 const page = ref(1)
 const PAGE_SIZE = 12
 
+// Runs a search for the given query and resets pagination.
 async function runSearch(q) {
   results.value = []
   error.value = ''
@@ -40,18 +43,19 @@ async function runSearch(q) {
   }
 }
 
-// La recherche vit dans l'URL (?q=...) : partageable, et le bouton retour fonctionne.
+// The search lives in the URL (?q=...): shareable, and the back button works.
 watch(() => route.query.q, (q) => runSearch(q), { immediate: true })
 
 watch(provider, () => runSearch(route.query.q))
 
+// Sorts the raw results according to the chosen criterion.
 const sortedResults = computed(() => {
   const list = [...results.value]
   switch (sortBy.value) {
     case 'title':
       return list.sort((a, b) => a.title.localeCompare(b.title))
     case 'year-desc':
-      // Sans annee connue : toujours apres les resultats datés.
+      // Unknown year: always after the dated results.
       return list.sort((a, b) => (b.year ?? -Infinity) - (a.year ?? -Infinity))
     case 'duration-desc':
       return list.sort((a, b) => (b.duration_seconds ?? 0) - (a.duration_seconds ?? 0))
@@ -62,9 +66,8 @@ const sortedResults = computed(() => {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(sortedResults.value.length / PAGE_SIZE)))
 
-// Le tri peut changer sans que la page courante reste valide (ex: moins de
-// pages qu'avant si on vient de filtrer) : on la recale au lieu de montrer
-// une page vide.
+// Sorting can change without the current page staying valid (e.g. fewer
+// pages than before after filtering): clamp it instead of showing an empty page.
 watch([sortBy, totalPages], () => {
   if (page.value > totalPages.value) page.value = totalPages.value
 })

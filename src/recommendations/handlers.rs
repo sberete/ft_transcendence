@@ -1,3 +1,10 @@
+// HTTP handler implementing the hybrid recommendation pipeline:
+// collaborative filtering (co-watch overlap between accounts) blended
+// with content-based filtering (TF-IDF title similarity, see
+// `scoring`), with a catalogue fallback when collaborative signal is
+// sparse, and honest cold-start/empty results rather than a disguised
+// "most watched" fallback.
+
 use std::collections::HashMap;
 
 use axum::extract::State;
@@ -13,16 +20,16 @@ use super::scoring::TfIdfModel;
 
 const MAX_RESULTS: usize = 12;
 const MAX_HISTORY: i64 = 200;
-// Poids du terme collaboratif dans le score final. Le terme s'annule tout
-// seul (vaut 0) quand il n'y a aucun voisin partageant des gouts avec
-// l'utilisateur : le contenu prend alors le relais sans bascule explicite
-// (if/else) entre les deux modes - c'est ca, "hybride".
+// Weight of the collaborative term in the final score. The term cancels
+// itself out (becomes 0) when there's no neighbor sharing tastes with the
+// user: content then takes over with no explicit if/else switch between
+// the two modes - that's what makes this "hybrid".
 const COLLAB_WEIGHT: f64 = 0.6;
 const CONTENT_WEIGHT: f64 = 1.0 - COLLAB_WEIGHT;
-// Sous ce nombre de candidats trouves par filtrage collaboratif, on complete
-// avec le catalogue general (tout ce que quelqu'un a deja regarde) pour
-// garantir qu'il y a toujours de quoi proposer autre chose que du contenu
-// deja vu, meme pour un compte sans "voisins".
+// Below this many candidates found through collaborative filtering, we
+// top up with the general catalogue (everything anyone has ever
+// watched) to guarantee there's always something to propose beyond
+// already-watched content, even for an account with no "neighbors".
 const MIN_CANDIDATES_BEFORE_CATALOG_FALLBACK: usize = MAX_RESULTS * 2;
 
 #[derive(sqlx::FromRow, Clone)]
@@ -36,6 +43,7 @@ struct WatchedRow {
 
 type MediaKey = (String, String);
 
+// Composite (provider, media_id) key used to dedupe candidates.
 fn key_of(row: &WatchedRow) -> MediaKey {
     (row.provider.clone(), row.media_id.clone())
 }
@@ -47,13 +55,16 @@ pub struct RecommendationView {
     title: String,
     year: Option<i32>,
     thumbnail: Option<String>,
-    // Expose pour l'affichage ("Parce que vous avez regardé X" / "Vu par N amis"),
-    // pas seulement pour le tri - l'explicabilite fait partie du systeme.
+    // Exposed for display ("Because you watched X" / "Watched by N
+    // friends"), not just for sorting - explainability is part of the system.
     based_on_title: Option<String>,
     co_watched_by: i64,
     score: f64,
 }
 
+// Builds this user's personalized recommendation list: collaborative
+// filtering first, topped up with a content-scored catalogue fallback
+// when sparse, then ranked by the blended hybrid score.
 pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
     -> Result<Json<Vec<RecommendationView>>, ApiError>
 {
@@ -68,8 +79,8 @@ pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
     .await
     .map_err(|_| ApiError::Internal)?;
 
-    // Pas d'historique : rien a recommander honnetement, pas de repli sur
-    // "les plus regardes" qui serait hors sujet pour ce module (chap. IV).
+    // No history: honestly nothing to recommend, no falling back to
+    // "most watched" which would be off-topic for this module (subject chap. IV).
     if my_items.is_empty() {
         return Ok(Json(Vec::new()));
     }
@@ -77,9 +88,9 @@ pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
     let my_providers: Vec<String> = my_items.iter().map(|r| r.provider.clone()).collect();
     let my_media_ids: Vec<String> = my_items.iter().map(|r| r.media_id.clone()).collect();
 
-    // --- Filtrage collaboratif : qui d'autre a regarde au moins une de mes
-    // videos, et dans quelle proportion de mon historique (= a quel point ses
-    // gouts recoupent les miens).
+    // --- Collaborative filtering: who else watched at least one of my
+    // videos, and what proportion of my history that represents (= how much
+    // their taste overlaps with mine).
     let neighbors: Vec<(i64, i64)> = sqlx::query_as(
         "SELECT wh.user_id, COUNT(*) AS overlap
          FROM watch_history wh
@@ -142,11 +153,11 @@ pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
         }
     }
 
-    // --- Repli "catalogue" : complete avec tout ce que quelqu'un a deja
-    // regarde si le filtrage collaboratif n'a pas assez de matiere (compte
-    // sans voisins, ou voisins avec peu d'historique en commun). Ces
-    // candidats entrent avec un score collaboratif nul : seul le contenu les
-    // departagera, c'est la partie "hybride" du systeme.
+    // --- Catalogue fallback: top up with everything anyone has ever
+    // watched if collaborative filtering didn't find enough material (no
+    // neighbors, or neighbors with little shared history). These
+    // candidates enter with a zero collaborative score: content alone
+    // decides whether they survive - this is the "hybrid" part of the system.
     if candidates.len() < MIN_CANDIDATES_BEFORE_CATALOG_FALLBACK {
         let catalog: Vec<WatchedRow> = sqlx::query_as(
             "SELECT DISTINCT ON (provider, media_id) provider, media_id, title, year, thumbnail_url
@@ -171,8 +182,8 @@ pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
         return Ok(Json(Vec::new()));
     }
 
-    // Corpus pour l'IDF : mon historique + les candidats du moment, suffisant
-    // a cette echelle (voir scoring::TfIdfModel).
+    // Corpus for the IDF table: my history plus the current candidates,
+    // which is enough at this scale (see scoring::TfIdfModel).
     let corpus = my_items.iter().map(|r| r.title.as_str()).chain(candidates.values().map(|r| r.title.as_str()));
     let model = TfIdfModel::fit(corpus);
 
@@ -208,10 +219,10 @@ pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
         })
         .collect();
 
-    // Le repli "catalogue" ci-dessus peut amener des candidats sans aucun
-    // signal (ni co-visionnage, ni similarite de contenu) : les afficher
-    // serait aussi malhonnete que le repli "les plus regardes" qu'on a
-    // volontairement evite plus haut.
+    // The catalogue fallback above can bring in candidates with no signal
+    // at all (neither co-watching nor content similarity): showing them
+    // would be just as dishonest as the "most watched" fallback we
+    // deliberately avoided above.
     scored.retain(|r| r.score > 0.0);
     scored.sort_by(|a, b| b.score.total_cmp(&a.score));
     scored.truncate(MAX_RESULTS);

@@ -1,3 +1,8 @@
+// Single error type for the whole REST API. Every handler returns
+// `Result<_, ApiError>`: this file centralizes the conversion into an
+// HTTP status code and a `{"error": "..."}` JSON body, so no error
+// response ever has to be built by hand elsewhere.
+
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -10,7 +15,7 @@ pub enum ApiError {
     NotFound(String),
     Conflict(String),
     Internal,
-    // Une source externe (Archive, PeerTube...) a echoue : ce n'est pas notre bug.
+    // An external source (Archive, PeerTube...) failed: not our bug.
     BadGateway(String),
     TooManyRequests(String),
 }
@@ -21,6 +26,7 @@ struct ErrorBody {
 }
 
 impl ApiError {
+    // Maps each variant to the HTTP status code it should produce.
     fn status_code(&self) -> StatusCode
     {
         match self {
@@ -34,6 +40,8 @@ impl ApiError {
         }
     }
 
+    // Message sent back to the client: the variant's own message, or a
+    // generic text for the cases with no detail (Unauthorized, Internal).
     fn message(&self) -> String
     {
         match self {
@@ -49,6 +57,8 @@ impl ApiError {
 }
 
 impl IntoResponse for ApiError {
+    // Lets a handler return `ApiError` directly from Axum: turns the
+    // error into an actual HTTP response (status + JSON).
     fn into_response(self) -> Response
     {
         let status = self.status_code();

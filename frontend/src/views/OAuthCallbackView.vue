@@ -1,4 +1,6 @@
 <script setup>
+// Landing page for the OAuth redirect from the backend, shown either
+// inside the login popup or full-page if the popup was blocked.
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -8,12 +10,13 @@ import { OAUTH_CHANNEL, isSessionToken, oauthErrorCode } from '../services/oauth
 
 const { t } = useI18n()
 
-// Le backend renvoie ici apres une connexion Google/GitHub :
-//   succes : /oauth/callback#token=...     echec : /oauth/callback?error=...
+// The backend redirects here after a Google/GitHub login:
+//   success: /oauth/callback#token=...     failure: /oauth/callback?error=...
 //
-// Cette page s'affiche soit dans la popup, soit en pleine page (popup bloquee).
-// Pour le savoir, elle annonce le resultat sur le canal : si une page de
-// connexion repond, on est dans la popup et on se ferme. Sinon on gere seul.
+// This page may render either inside the popup or full-page (popup
+// blocked). To find out, it announces the result on the channel: if a
+// login page answers, we're in the popup and close it. Otherwise we
+// handle things on our own.
 const ACK_TIMEOUT_MS = 500
 
 const route = useRoute()
@@ -28,12 +31,12 @@ onMounted(() => {
   const token = new URLSearchParams(window.location.hash.slice(1)).get('token')
   const result = isSessionToken(token) ? { token } : { error: oauthErrorCode(route.query.error) }
 
-  // Le token quitte la barre d'adresse et l'historique tout de suite.
+  // The token leaves the address bar and history right away.
   window.history.replaceState(null, '', '/oauth/callback')
 
-  // Meme garde-fou que dans OAuthButtons.vue : un navigateur sans
-  // BroadcastChannel ne doit pas planter ici, juste se comporter comme
-  // si personne ne repondait (pleine page).
+  // Same safeguard as in OAuthButtons.vue: a browser without
+  // BroadcastChannel must not crash here, just behave as if nobody
+  // answered (full page).
   try {
     channel = new BroadcastChannel(OAUTH_CHANNEL)
   } catch {
@@ -61,7 +64,7 @@ onBeforeUnmount(() => {
   channel?.close()
 })
 
-// Personne n'a repondu : on est en pleine page.
+// Nobody answered: we're running full-page, handle the result ourselves.
 function finishAlone(result) {
   if (result.token) {
     setToken(result.token)
@@ -73,7 +76,7 @@ function finishAlone(result) {
 </script>
 
 <template>
-  <!-- Si le navigateur refuse window.close(), on le dit a l'utilisateur. -->
+  <!-- If the browser refuses window.close(), tell the user. -->
   <AuthCard v-if="done" :title="t('oauthCallback.doneTitle')" :subtitle="t('oauthCallback.doneSubtitle')" />
   <AuthCard v-else :title="t('oauthCallback.pendingTitle')" :subtitle="t('oauthCallback.pendingSubtitle')" />
 </template>

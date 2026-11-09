@@ -1,4 +1,6 @@
 <script setup>
+// Profile page: username editing and avatar upload/delete with a live
+// progress bar.
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -22,6 +24,7 @@ const deletingAvatar = ref(false)
 
 onMounted(loadProfile)
 
+// Loads the logged-in user's own profile.
 async function loadProfile() {
   try {
     profile.value = await getMe(token.value)
@@ -32,12 +35,13 @@ async function loadProfile() {
   }
 }
 
-// Met a jour la page ET le header (avatar, pseudo dans le menu).
+// Updates the local profile and the shared header state (avatar, username in the menu).
 function applyProfile(value) {
   profile.value = value
   setUser(value)
 }
 
+// Saves a new username.
 async function handleUpdateUsername() {
   error.value = ''
   success.value = ''
@@ -49,11 +53,11 @@ async function handleUpdateUsername() {
   }
 }
 
+// Uploads a newly selected avatar file, tracking progress.
 async function handleAvatarChange(event) {
   const file = event.target.files[0]
-  // Vide la valeur tout de suite : sinon re-choisir le MEME fichier après
-  // une erreur ne redéclencherait pas @change (le navigateur ne voit
-  // aucun changement de valeur).
+  // Clear the value right away: otherwise re-picking the SAME file after
+  // an error wouldn't re-trigger @change (the browser sees no value change).
   event.target.value = ''
   if (!file) return
 
@@ -73,6 +77,7 @@ async function handleAvatarChange(event) {
   }
 }
 
+// Removes the current avatar.
 async function handleAvatarDelete() {
   error.value = ''
   success.value = ''

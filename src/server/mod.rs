@@ -1,3 +1,8 @@
+// Wires the whole application together: config, database pool and
+// migrations, shared state (room registry, media client, OAuth config,
+// rate limiter), CORS, static file serving, and finally the HTTP
+// listener. Called once from `main`.
+
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::HeaderValue;
 use axum::Extension;
@@ -11,6 +16,8 @@ use crate::media::MediaClient;
 use crate::routes;
 use crate::ws::RoomRegistry;
 
+// Loads config, connects to Postgres, builds the Axum app with every
+// module's routes and shared state, and serves it until the process stops.
 pub async fn run() -> std::io::Result<()>
 {
     let config = Config::init();
@@ -28,9 +35,9 @@ pub async fn run() -> std::io::Result<()>
     let rooms = RoomRegistry::new();
     let frontend_origins = config.frontend_origins();
 
-    // Mêmes origines que la vérification Origin du WebSocket (config::
-    // frontend_origins) : seuls les fronts connus peuvent appeler l'API,
-    // pas "*". Le joker ne couvre de toute façon pas Authorization.
+    // Same origins as the WebSocket's Origin check (config::
+    // frontend_origins): only known frontends can call the API, never
+    // "*". The wildcard wouldn't cover Authorization anyway.
     let cors_origins: Vec<HeaderValue> = frontend_origins
         .iter()
         .filter_map(|origin| HeaderValue::from_str(origin).ok())

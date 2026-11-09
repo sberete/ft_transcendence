@@ -1,4 +1,5 @@
 <script setup>
+// Signup page: username/email/password form, plus OAuth buttons.
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -16,6 +17,7 @@ const submitting = ref(false)
 const router = useRouter()
 const { setToken } = useAuth()
 
+// Submits the signup form, logs the new account in, and redirects home.
 async function handleSubmit() {
   error.value = ''
   submitting.value = true

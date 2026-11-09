@@ -1,4 +1,4 @@
-// Formes des messages echanges sur /ws, miroir exact de docs/websocket.md.
+// Wire message shapes exchanged on /ws, an exact mirror of docs/websocket.md.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -69,10 +69,10 @@ pub enum ServerMessage {
     },
     #[serde(rename = "room.member_joined")]
     RoomMemberJoined { user: UserRef },
+    // new_owner_id: present only if whoever left was the owner and the
+    // room is still alive (ownership transferred to the longest-present
+    // member, see registry::leave).
     #[serde(rename = "room.member_left")]
-    // new_owner_id : present seulement si celui qui part etait le proprietaire
-    // et que la salle continue (transfert au membre present depuis le plus
-    // longtemps, voir registry::leave).
     RoomMemberLeft { user_id: i64, new_owner_id: Option<i64> },
     #[serde(rename = "chat.message")]
     ChatMessage {
@@ -96,11 +96,13 @@ pub enum ServerMessage {
 }
 
 impl ServerMessage {
+    // Shorthand for building an `error` message from a static code and a message.
     pub fn error(code: &'static str, message: impl Into<String>) -> Self {
         ServerMessage::Error { code, message: message.into() }
     }
 }
 
+// Current server time, in milliseconds since the Unix epoch (used for clock-sync messages).
 pub fn now_ms() -> i64 {
     Utc::now().timestamp_millis()
 }

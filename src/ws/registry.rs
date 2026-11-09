@@ -1,9 +1,9 @@
-// Etat vivant des salons, en memoire. La DB garde l'historique (table
-// messages) et la liste des salons (table rooms) ; ce registre, lui, ne
-// connait que ce qui est utile tant qu'au moins une connexion est ouverte :
-// qui est present, quelle video, a quelle position. Il disparait et se
-// reconstruit a partir de rien a chaque redemarrage du serveur - c'est
-// voulu, rien ici n'est source de verite durable.
+// Live in-memory room state. The database keeps the durable history
+// (messages table) and the list of rooms (rooms table); this registry
+// only knows what's useful while at least one connection is open: who's
+// present, which video, at what position. It disappears and rebuilds
+// from nothing on every server restart - that's intentional, nothing
+// here is a durable source of truth.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -18,8 +18,8 @@ pub type OutgoingTx = mpsc::UnboundedSender<Message>;
 struct LiveMember {
     user: UserRef,
     tx: OutgoingTx,
-    // Sert a trouver qui est present depuis le plus longtemps, pour lui
-    // transferer la propriete du salon si son proprietaire part (voir leave()).
+    // Used to find who has been present longest, to hand them room
+    // ownership if the owner leaves (see leave()).
     joined_at: i64,
 }
 
@@ -44,9 +44,9 @@ pub struct JoinOutcome {
 pub struct LeaveOutcome {
     pub room_is_empty: bool,
     pub notify_remaining: Vec<OutgoingTx>,
-    // Some(id) si celui qui part etait proprietaire et que la salle continue :
-    // le nouveau proprietaire (deja applique dans le registre), a persister
-    // en base et a annoncer aux membres restants.
+    // Some(id) if whoever left was the owner and the room is still alive:
+    // the new owner (already applied in the registry), to persist to the
+    // database and announce to the remaining members.
     pub new_owner_id: Option<i64>,
 }
 
@@ -56,13 +56,20 @@ pub struct RoomRegistry {
 }
 
 impl RoomRegistry {
+    // Creates an empty registry; rooms are created lazily on first join.
     pub fn new() -> Self {
         RoomRegistry { rooms: Arc::new(Mutex::new(HashMap::new())) }
     }
 
-    // Cree l'entree en memoire si c'est le premier membre a rejoindre cette
-    // room depuis le demarrage du serveur (name/owner_id ne servent que dans
-    // ce cas : ils viennent d'une lecture DB faite juste avant par l'appelant).
+    // Creates the in-memory entry if this is the first member to join
+    // this room since the server started (name/owner_id are only used in
+    // that case: they come from a DB read the caller just did).
+    //
+    // The returned `members` snapshot is taken BEFORE the new member is
+    // inserted below, so it deliberately excludes the joiner themselves -
+    // the frontend adds itself to the list client-side (see
+    // frontend/src/services/roomSocket.js) rather than receiving a
+    // self-referential list back from the server.
     pub fn join(&self, room_id: i64, code: &str, name: &str, owner_id: i64, user: UserRef, tx: OutgoingTx)
         -> JoinOutcome
     {
@@ -91,6 +98,9 @@ impl RoomRegistry {
         outcome
     }
 
+    // Removes a member, transferring ownership to the longest-present
+    // remaining member if the owner was the one leaving, and deletes the
+    // room entirely once it has no members left.
     pub fn leave(&self, room_id: i64, user_id: i64)
         -> LeaveOutcome
     {
@@ -103,9 +113,9 @@ impl RoomRegistry {
         room.members.remove(&user_id);
         let room_is_empty = room.members.is_empty();
 
-        // Le proprietaire part mais la salle continue : elle revient a qui
-        // est present depuis le plus longtemps, plutot que de rester bloquee
-        // sans personne pour changer la video.
+        // The owner leaves but the room goes on: it passes to whoever has
+        // been present longest, rather than being stuck with no one able
+        // to change the video.
         let new_owner_id = if was_owner && !room_is_empty {
             let heir = room.members.values().min_by_key(|m| m.joined_at).map(|m| m.user.id);
             if let Some(id) = heir {
@@ -125,6 +135,7 @@ impl RoomRegistry {
         LeaveOutcome { room_is_empty, notify_remaining, new_owner_id }
     }
 
+    // Returns the outgoing channels for every current member of a room.
     pub fn members_tx(&self, room_id: i64)
         -> Vec<OutgoingTx>
     {
@@ -136,6 +147,7 @@ impl RoomRegistry {
             .unwrap_or_default()
     }
 
+    // Changes a room's current video, resetting playback to paused at position 0.
     pub fn set_media(&self, room_id: i64, media: MediaRef)
         -> Option<(PlaybackRef, MediaRef, Vec<OutgoingTx>)>
     {
@@ -152,8 +164,8 @@ impl RoomRegistry {
         Some((snapshot, media, notify))
     }
 
-    // play/pause/seek partagent la meme forme : on pose un nouveau point de
-    // reference (position, server_time) et on diffuse a tout le monde.
+    // play/pause/seek share the same shape: set a new reference point
+    // (position, server_time) and broadcast it to everyone.
     pub fn set_playback(&self, room_id: i64, playing: bool, position: f64)
         -> Option<(PlaybackRef, Option<MediaRef>, Vec<OutgoingTx>)>
     {
@@ -169,8 +181,8 @@ impl RoomRegistry {
         Some((snapshot, room.media.clone(), notify))
     }
 
-    // Comme set_playback, mais ne touche pas a `playing` : "saute sans changer
-    // lecture/pause" (section 5 du contrat).
+    // Like set_playback, but leaves `playing` untouched: "jumps without
+    // changing play/pause" (contract section 5).
     pub fn seek(&self, room_id: i64, position: f64)
         -> Option<(PlaybackRef, Option<MediaRef>, Vec<OutgoingTx>)>
     {

@@ -1,4 +1,6 @@
 <script setup>
+// Root component: renders the header/footer chrome around the current
+// route, except on "bare" pages (auth forms) which take the full screen.
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'

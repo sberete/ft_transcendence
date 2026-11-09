@@ -1,3 +1,6 @@
+// App route table and the global navigation guard (auth required / guest
+// only). Heavy views (video player, rooms, search) are dynamically
+// imported so they don't bloat the initial bundle.
 import { createRouter, createWebHistory } from 'vue-router'
 import FriendsView from '../views/FriendsView.vue'
 import HomeView from '../views/HomeView.vue'
@@ -7,9 +10,9 @@ import ProfileView from '../views/ProfileView.vue'
 import SignupView from '../views/SignupView.vue'
 import { useAuth } from '../services/auth'
 
-// meta.requiresAuth : redirige vers /login si pas de token.
-// meta.guestOnly    : redirige vers / si deja connecte (login, signup).
-// meta.bare         : page plein ecran sans header (formulaires d'auth).
+// meta.requiresAuth : redirects to /login if there is no token.
+// meta.guestOnly    : redirects to / if already logged in (login, signup).
+// meta.bare         : full-screen page with no header (auth forms).
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -24,7 +27,7 @@ const router = createRouter({
       component: () => import('../views/SearchView.vue'),
       meta: { requiresAuth: true },
     },
-    // Import dynamique : hls.js (~500 Ko) n'est charge que si on ouvre un lecteur.
+    // Dynamic import: hls.js (~500 KB) is only loaded when a player is opened.
     {
       path: '/watch/:provider/:id',
       component: () => import('../views/WatchView.vue'),
@@ -56,6 +59,7 @@ const router = createRouter({
   },
 })
 
+// Enforces the requiresAuth/guestOnly rules before every navigation.
 router.beforeEach((to) => {
   const { token } = useAuth()
   if (to.meta.requiresAuth && !token.value) {

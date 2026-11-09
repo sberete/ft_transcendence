@@ -1,9 +1,14 @@
+// Friends module: send/accept friend requests and remove friends. Also
+// the source of the "a friend started a session" and friend-request
+// notifications fired from `notifications::create`.
+
 mod handlers;
 
 use axum::routing::{delete, get, post};
 use axum::Router;
 use sqlx::PgPool;
 
+// REST routes for listing friends/requests and acting on them.
 pub fn router()
     -> Router<PgPool>
 {

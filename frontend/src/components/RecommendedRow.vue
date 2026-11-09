@@ -1,20 +1,23 @@
 <script setup>
+// "Recommended for you" row on the home page, backed by the hybrid
+// recommendation endpoint rather than a search query.
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MediaCard from './MediaCard.vue'
 import { getRecommendations } from '../services/api'
 import { useAuth } from '../services/auth'
 
-// Meme disposition que MediaRow (defilement horizontal), mais la source de
-// donnees et la forme de la reponse sont differentes (score/raison en plus,
-// pas de requete de recherche a l'origine) : un composant a part plutot que
-// de forcer MediaRow a gerer deux formes de donnees.
+// Same layout as MediaRow (horizontal scroll), but the data source and
+// response shape differ (score/reason on top, no originating search
+// query): a separate component rather than forcing MediaRow to handle two
+// data shapes.
 const { t } = useI18n()
 const { token } = useAuth()
 const items = ref([])
 const loading = ref(true)
 const track = ref(null)
 
+// Loads the current user's recommendations once on mount.
 onMounted(async () => {
   try {
     items.value = await getRecommendations(token.value)
@@ -25,12 +28,14 @@ onMounted(async () => {
   }
 })
 
+// Builds the short "why this is recommended" caption for one item.
 function reason(item) {
   if (item.co_watched_by > 0) return t('recommendations.coWatched', { count: item.co_watched_by }, item.co_watched_by)
   if (item.based_on_title) return t('recommendations.basedOn', { title: item.based_on_title })
   return ''
 }
 
+// Scrolls the track one "page" left (-1) or right (1).
 function scroll(direction) {
   const el = track.value
   el.scrollBy({ left: direction * el.clientWidth * 0.85, behavior: 'smooth' })
@@ -38,8 +43,8 @@ function scroll(direction) {
 </script>
 
 <template>
-  <!-- Pas d'historique de visionnage encore -> rien a montrer, la rangee
-       disparait au lieu d'afficher un etat vide sur la page d'accueil. -->
+  <!-- No watch history yet -> nothing to show, the row disappears instead
+       of showing an empty state on the home page. -->
   <section v-if="loading || items.length > 0" class="row">
     <div class="row-head">
       <h2>{{ t('recommendations.title') }}</h2>

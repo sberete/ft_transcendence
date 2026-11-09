@@ -1,3 +1,7 @@
+// HTTP handlers for the friends system: send/accept a request, list
+// friends and pending requests, remove a friend. Each mutation also
+// fires a best-effort notification to the other party.
+
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
@@ -10,8 +14,8 @@ use crate::notifications;
 
 const ONLINE_THRESHOLD_SECONDS: &str = "60 seconds";
 
-// Utilise pour denormaliser qui est a l'origine d'une notification (voir
-// notifications::create) sans dupliquer la meme requete a chaque handler.
+// Used to denormalize who triggered a notification (see
+// notifications::create) without repeating the same query in every handler.
 async fn user_ref(pool: &PgPool, user_id: i64) -> Option<(String, Option<String>)> {
     sqlx::query_as("SELECT username, avatar_url FROM users WHERE id = $1")
         .bind(user_id)
@@ -34,6 +38,7 @@ pub struct FriendView {
     online: bool,
 }
 
+// Lists this user's accepted friends, with their online status.
 pub async fn list_friends(auth: AuthUser, State(pool): State<PgPool>)
     -> Result<Json<Vec<FriendView>>, ApiError>
 {
@@ -53,6 +58,7 @@ pub async fn list_friends(auth: AuthUser, State(pool): State<PgPool>)
     Ok(Json(friends))
 }
 
+// Lists incoming friend requests still pending this user's decision.
 pub async fn list_requests(auth: AuthUser, State(pool): State<PgPool>)
     -> Result<Json<Vec<FriendView>>, ApiError>
 {
@@ -72,6 +78,9 @@ pub async fn list_requests(auth: AuthUser, State(pool): State<PgPool>)
     Ok(Json(requests))
 }
 
+// Creates a pending friend request by username, after checking it isn't
+// a self-request or a duplicate of an existing relationship, then
+// notifies the target user.
 pub async fn send_request(auth: AuthUser, State(pool): State<PgPool>, Json(payload): Json<AddFriendRequest>)
     -> Result<StatusCode, ApiError>
 {
@@ -123,6 +132,9 @@ pub async fn send_request(auth: AuthUser, State(pool): State<PgPool>, Json(paylo
     Ok(StatusCode::CREATED)
 }
 
+// Accepts a pending request from `from_user_id`: flips the original row
+// to 'accepted' and inserts the mirrored row so the relationship is
+// queryable from either side, then notifies the requester.
 pub async fn accept_request(auth: AuthUser, State(pool): State<PgPool>, Path(from_user_id): Path<i64>)
     -> Result<Json<FriendView>, ApiError>
 {
@@ -177,6 +189,8 @@ pub async fn accept_request(auth: AuthUser, State(pool): State<PgPool>, Path(fro
     Ok(Json(view))
 }
 
+// Removes the friendship in both directions (whichever side initiated
+// it originally) and notifies the other party.
 pub async fn remove_friend(auth: AuthUser, State(pool): State<PgPool>, Path(friend_id): Path<i64>)
     -> Result<StatusCode, ApiError>
 {

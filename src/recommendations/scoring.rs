@@ -1,15 +1,15 @@
-// Similarite de contenu entre deux titres : TF-IDF + cosinus, calcule sur le
-// corpus fourni a chaque requete (quelques centaines de titres au plus a
-// cette echelle, pas besoin d'un index pre-calcule). C'est la moitie
-// "filtrage par contenu" du systeme hybride (voir recommendations::handlers) :
-// une technique standard de recommandation/recherche d'information, pas une
-// heuristique ad hoc.
+// Content similarity between two titles: TF-IDF + cosine similarity,
+// computed on the corpus supplied with each request (a few hundred
+// titles at most at this scale, no need for a pre-built index). This is
+// the "content-based filtering" half of the hybrid system (see
+// recommendations::handlers): a standard information-retrieval
+// technique, not an ad hoc heuristic.
 
 use std::collections::{HashMap, HashSet};
 
-// Tokenisation volontairement simple (minuscules, mots alphanumeriques) :
-// les titres de ce catalogue melangent francais/anglais, une tokenisation
-// NLP specifique a une langue ferait plus de mal que de bien ici.
+// Deliberately simple tokenization (lowercase, alphanumeric words): this
+// catalogue's titles mix French and English, so a language-specific NLP
+// tokenizer would do more harm than good here.
 fn tokenize(title: &str) -> Vec<String> {
     title
         .to_lowercase()
@@ -20,13 +20,15 @@ fn tokenize(title: &str) -> Vec<String> {
 }
 
 pub struct TfIdfModel {
-    // idf(terme) = ln((N + 1) / (df + 1)) + 1 (variante "lissee" classique,
-    // evite une division par zero et un score nul pour un terme present
-    // dans tous les documents).
+    // idf(term) = ln((N + 1) / (df + 1)) + 1 (the classic "smoothed"
+    // variant, avoids a division by zero and a zero score for a term
+    // present in every document).
     idf: HashMap<String, f64>,
 }
 
 impl TfIdfModel {
+    // Builds the IDF table from a corpus of titles (document frequency
+    // of each term across the whole corpus).
     pub fn fit<'a>(documents: impl Iterator<Item = &'a str>) -> Self {
         let mut doc_count: usize = 0;
         let mut document_frequency: HashMap<String, usize> = HashMap::new();
@@ -50,6 +52,7 @@ impl TfIdfModel {
         TfIdfModel { idf }
     }
 
+    // Builds the TF-IDF weight vector for a single title, against this model's IDF table.
     fn vector(&self, title: &str) -> HashMap<String, f64> {
         let tokens = tokenize(title);
         if tokens.is_empty() {
@@ -72,8 +75,8 @@ impl TfIdfModel {
             .collect()
     }
 
-    // Cosinus entre les vecteurs TF-IDF de deux titres, dans [0, 1] (les poids
-    // sont tous positifs ici, pas besoin de gerer un cosinus negatif).
+    // Cosine similarity between the TF-IDF vectors of two titles, in
+    // [0, 1] (every weight here is positive, so a negative cosine never occurs).
     pub fn similarity(&self, a: &str, b: &str) -> f64 {
         let vec_a = self.vector(a);
         let vec_b = self.vector(b);
@@ -94,6 +97,7 @@ impl TfIdfModel {
 mod tests {
     use super::*;
 
+    // A title compared to itself must score strictly higher than an unrelated one.
     #[test]
     fn identical_titles_score_highest() {
         let titles = ["Dracula 1931", "Nosferatu", "Sherlock Holmes"];
@@ -105,6 +109,7 @@ mod tests {
         assert!((same - 1.0).abs() < 1e-9);
     }
 
+    // Titles sharing no token at all must score exactly zero.
     #[test]
     fn disjoint_titles_score_zero() {
         let titles = ["Dracula", "Popeye le marin"];

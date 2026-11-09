@@ -1,4 +1,6 @@
 <script setup>
+// A single media thumbnail card, used inside MediaRow/RecommendedRow and
+// the search results grid.
 import { ref } from 'vue'
 import { PROVIDER_LABELS, formatDuration } from '../services/format'
 
@@ -50,8 +52,8 @@ const imageFailed = ref(false)
   background: var(--bg-elevated);
 }
 
-/* En absolu, l'image ne participe pas au calcul de taille : le cadre reste en 16/9
-   quelles que soient les dimensions de la vignette d'origine. */
+/* Absolutely positioned so the image doesn't drive the box's size: the
+   frame stays 16/9 regardless of the source thumbnail's dimensions. */
 .thumb img {
   position: absolute;
   inset: 0;

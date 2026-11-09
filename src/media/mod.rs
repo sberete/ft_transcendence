@@ -1,9 +1,9 @@
-// Agregateur de videos legales, sur le meme principe que Movix :
-// on n'heberge rien, on interroge des sources externes et on renvoie
-// au front des liens directs (MP4 / HLS) qu'il lit lui-meme.
+// Aggregator for legal video sources, on the same principle as Movix:
+// nothing is hosted here, we query external sources and hand the
+// frontend direct links (MP4 / HLS) that it plays itself.
 //
-// Difference avec Movix : uniquement des sources qui l'autorisent,
-// via leur API publique, sans contournement de protection.
+// Difference from Movix: only sources that explicitly allow this, via
+// their public API, with no protection bypass.
 
 mod archive;
 mod handlers;
@@ -18,11 +18,12 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-// archive.org repond parfois en plus de 10s : en dessous, trop de faux echecs.
+// archive.org sometimes takes more than 10s to answer: below that, too many false failures.
 const HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 const RETRY_DELAY: Duration = Duration::from_millis(500);
 const MAX_RESULTS_PER_PROVIDER: usize = 12;
 
+// REST routes for searching the catalogue and fetching one item's details.
 pub fn router()
     -> Router<PgPool>
 {
@@ -31,9 +32,9 @@ pub fn router()
         .route("/{provider}/{id}", get(handlers::details))
 }
 
-// Meme regle de validation que GET /media/{provider}/{id}, exposee pour
-// d'autres modules (ws: playback.set_media) qui recoivent aussi une
-// paire provider/id venant du client et doivent la verifier avant usage.
+// Same validation rule as GET /media/{provider}/{id}, exposed for other
+// modules (ws: playback.set_media) that also receive a provider/id pair
+// from the client and must validate it before use.
 pub fn is_valid_media_ref(provider: ProviderId, id: &str)
     -> bool
 {
@@ -51,8 +52,8 @@ pub enum ProviderId {
 }
 
 impl ProviderId {
-    // Pour les colonnes TEXT (watch_history.provider) : meme forme que le JSON
-    // (rename_all = "lowercase") mais explicite plutot que de passer par serde.
+    // For TEXT columns (watch_history.provider): same shape as the JSON
+    // form (rename_all = "lowercase") but explicit rather than going through serde.
     pub fn as_str(self) -> &'static str {
         match self {
             ProviderId::Archive => "archive",
@@ -61,7 +62,7 @@ impl ProviderId {
     }
 }
 
-// Un resultat de recherche, identique quelle que soit la source.
+// A single search result, the same shape regardless of the source.
 #[derive(Serialize)]
 pub struct MediaItem {
     provider: ProviderId,
@@ -72,14 +73,14 @@ pub struct MediaItem {
     duration_seconds: Option<u64>,
 }
 
-// Fiche complete d'une video : ce qu'affiche la page de lecture.
+// Full detail sheet for one video: what the playback page displays.
 #[derive(Serialize)]
 pub struct MediaDetails {
     #[serde(flatten)]
     item: MediaItem,
-    // Peut contenir du HTML (Archive) : le front doit l'afficher en texte brut.
+    // May contain HTML (Archive): the frontend must render it as plain text.
     description: Option<String>,
-    // Image plus grande que `thumbnail`, pour le fond de la page.
+    // Larger image than `thumbnail`, used as the page's background.
     backdrop: Option<String>,
     streams: Vec<StreamLink>,
 }
@@ -91,7 +92,7 @@ pub enum StreamKind {
     Hls,
 }
 
-// Un lien lisible directement par le lecteur du front.
+// A link the frontend's player can read directly.
 #[derive(Serialize)]
 pub struct StreamLink {
     kind: StreamKind,
@@ -99,8 +100,8 @@ pub struct StreamLink {
     quality: Option<String>,
 }
 
-// Partage entre les handlers via Extension (reqwest::Client est un Arc en interne,
-// le cloner ne coute rien et reutilise le pool de connexions).
+// Shared between handlers via Extension (reqwest::Client wraps an Arc
+// internally, so cloning it is cheap and reuses the connection pool).
 #[derive(Clone)]
 pub struct MediaClient {
     http: reqwest::Client,
@@ -108,10 +109,11 @@ pub struct MediaClient {
 }
 
 impl MediaClient {
+    // Builds the shared HTTP client used to talk to both providers.
     pub fn new(peertube_url: &str)
         -> Self
     {
-        // User-Agent honnete : on s'identifie au lieu d'imiter un navigateur.
+        // Honest User-Agent: we identify ourselves instead of impersonating a browser.
         let http = reqwest::Client::builder()
             .user_agent(concat!("ft_transcendence/", env!("CARGO_PKG_VERSION")))
             .timeout(HTTP_TIMEOUT)
@@ -123,9 +125,10 @@ impl MediaClient {
         MediaClient { http, peertube_base }
     }
 
-    // GET + decodage JSON, avec UNE nouvelle tentative si l'echec est passager
-    // (timeout, connexion, 5xx) : archive.org renvoie regulierement des 502 isoles.
-    // Pas plus d'une : on ne veut pas marteler une source deja en difficulte.
+    // GET + JSON decoding, with ONE retry if the failure looks transient
+    // (timeout, connection, 5xx): archive.org regularly returns isolated
+    // 502s. Never more than one retry: we don't want to hammer a source
+    // that's already struggling.
     async fn get_json<T: DeserializeOwned>(&self, request: RequestBuilder)
         -> Result<T, reqwest::Error>
     {
@@ -144,12 +147,15 @@ impl MediaClient {
     }
 }
 
+// Sends a request and decodes its JSON body, treating any non-2xx status as an error.
 async fn send_json<T: DeserializeOwned>(request: RequestBuilder)
     -> Result<T, reqwest::Error>
 {
     request.send().await?.error_for_status()?.json().await
 }
 
+// Whether a request error is worth retrying once (timeout, connection
+// failure, or a 5xx from the upstream server).
 fn is_transient(err: &reqwest::Error)
     -> bool
 {

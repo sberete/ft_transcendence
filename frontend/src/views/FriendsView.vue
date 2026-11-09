@@ -1,4 +1,6 @@
 <script setup>
+// Friends page: incoming friend requests, the friends list with online
+// status, and the form to send a new request by username.
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -31,6 +33,7 @@ onMounted(async () => {
   await loadAll()
 })
 
+// Reloads both the friends list and pending requests from the backend.
 async function loadAll() {
   try {
     friends.value = await listFriends(token.value)
@@ -42,6 +45,7 @@ async function loadAll() {
   }
 }
 
+// Sends a new friend request by username.
 async function handleSendRequest() {
   error.value = ''
   success.value = ''
@@ -54,6 +58,7 @@ async function handleSendRequest() {
   }
 }
 
+// Accepts a pending incoming request.
 async function handleAccept(fromUserId) {
   error.value = ''
   try {
@@ -64,6 +69,7 @@ async function handleAccept(fromUserId) {
   }
 }
 
+// Declines a pending incoming request (same endpoint as removing a friend).
 async function handleDecline(fromUserId) {
   try {
     await removeFriend(token.value, fromUserId)
@@ -73,6 +79,7 @@ async function handleDecline(fromUserId) {
   }
 }
 
+// Removes an existing friend.
 async function handleRemoveFriend(friendId) {
   try {
     await removeFriend(token.value, friendId)
@@ -82,6 +89,7 @@ async function handleRemoveFriend(friendId) {
   }
 }
 
+// Resolves an avatar URL, falling back to the default avatar when unset.
 function avatarSrc(url) {
   return url ? `${BASE_URL}${url}` : '/default-avatar.svg'
 }

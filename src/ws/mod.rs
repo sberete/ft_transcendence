@@ -1,3 +1,8 @@
+// Real-time module: the single WebSocket endpoint behind rooms, chat
+// and playback sync. `handler` implements the protocol, `registry`
+// holds the in-memory live-room state, `protocol` defines the wire
+// message types shared between them.
+
 mod handler;
 mod protocol;
 mod registry;
@@ -8,11 +13,11 @@ use sqlx::PgPool;
 
 pub use registry::RoomRegistry;
 
-// Etat propre a ce sous-routeur : le pool (pour les requetes DB du handler)
-// et le registre des salons vivants, plus les origines autorisees pour la
-// verification manuelle (les WebSockets ne passent pas par le CORS). Resolu
-// avec with_state() ici meme, puis nest() dans un Router<PgPool> parent sans
-// que celui-ci ait besoin de connaitre ce type d'etat.
+// State specific to this sub-router: the pool (for the handler's DB
+// queries) and the live-room registry, plus the allowed origins for
+// manual validation (WebSockets aren't covered by CORS). Resolved with
+// with_state() right here, then nest()ed into a parent Router<PgPool>
+// which never needs to know about this state type.
 #[derive(Clone)]
 pub struct WsState {
     pub pool: PgPool,
@@ -20,6 +25,7 @@ pub struct WsState {
     pub frontend_origins: Vec<String>,
 }
 
+// Builds the single `/` WebSocket route with its own resolved state.
 pub fn router(pool: PgPool, rooms: RoomRegistry, frontend_origins: Vec<String>)
     -> Router<PgPool>
 {
@@ -27,7 +33,7 @@ pub fn router(pool: PgPool, rooms: RoomRegistry, frontend_origins: Vec<String>)
         .route("/", get(handler::upgrade))
         .with_state(WsState { pool, rooms, frontend_origins });
 
-    // Un Router deja resolu (etat ()) peut etre imbrique dans un Router<PgPool>
-    // sans que ce dernier ait a partager le meme type d'etat.
+    // A Router that's already resolved (state ()) can be nested inside a
+    // Router<PgPool> without the latter having to share the same state type.
     Router::new().merge(ws_router)
 }

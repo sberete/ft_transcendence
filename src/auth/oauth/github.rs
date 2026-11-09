@@ -1,4 +1,5 @@
-// GitHub : OAuth App. https://docs.github.com/en/apps/oauth-apps/building-oauth-apps
+// GitHub-specific OAuth wiring (OAuth App).
+// https://docs.github.com/en/apps/oauth-apps/building-oauth-apps
 
 use reqwest::Url;
 use serde::Deserialize;
@@ -11,7 +12,7 @@ const USER_URL: &str = "https://api.github.com/user";
 const EMAILS_URL: &str = "https://api.github.com/user/emails";
 const ACCEPT_JSON: &str = "application/vnd.github+json";
 
-// GitHub repond 200 meme en cas d'echec, avec un champ `error` a la place du token.
+// GitHub answers 200 even on failure, with an `error` field instead of the token.
 #[derive(Deserialize)]
 struct TokenResponse {
     access_token: Option<String>,
@@ -31,6 +32,7 @@ struct Email {
     verified: bool,
 }
 
+// Builds the URL the browser is redirected to, to start the GitHub consent screen.
 pub fn authorize_url(creds: &Credentials, redirect_uri: &str, state: &str)
     -> Url
 {
@@ -39,11 +41,11 @@ pub fn authorize_url(creds: &Credentials, redirect_uri: &str, state: &str)
         &[
             ("client_id", creds.client_id.as_str()),
             ("redirect_uri", redirect_uri),
-            // user:email : l'email est souvent masque dans le profil public,
-            // il faut ce droit pour lire la liste des emails verifies.
+            // user:email: the email is often hidden on the public profile,
+            // this scope is needed to read the list of verified emails.
             ("scope", "read:user user:email"),
-            // Affiche toujours le selecteur de compte, pour pouvoir se
-            // connecter avec un autre compte que celui deja ouvert.
+            // Always shows the account picker, so the user can log in with
+            // an account other than the one already open in the browser.
             ("prompt", "select_account"),
             ("state", state),
         ],
@@ -51,6 +53,8 @@ pub fn authorize_url(creds: &Credentials, redirect_uri: &str, state: &str)
     .expect("hardcoded base URL is valid")
 }
 
+// Exchanges the authorization code for an access token, then fetches the
+// user's profile and primary verified email.
 pub async fn fetch_profile(http: &reqwest::Client, creds: &Credentials, redirect_uri: &str, code: &str)
     -> Result<OAuthProfile, OAuthError>
 {

@@ -1,4 +1,6 @@
 <script setup>
+// Privacy policy page: purely static legal text, rendered section by
+// section from the i18n messages (legal.privacy.*) so it's fully translated.
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()

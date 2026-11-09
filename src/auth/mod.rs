@@ -1,3 +1,8 @@
+// Authentication module: signup/login/logout with hashed passwords,
+// session validation, OAuth 2.0 (Google/GitHub), and login rate
+// limiting. Re-exports the pieces other modules need (the `AuthUser`
+// extractor, session validation) so they don't reach into submodules.
+
 mod extractor;
 mod handlers;
 mod oauth;
@@ -14,6 +19,7 @@ pub use oauth::OAuthConfig;
 pub use rate_limit::LoginRateLimiter;
 pub use session::validate_session;
 
+// REST routes for this module: local auth plus the OAuth flow.
 pub fn router()
     -> Router<PgPool>
 {

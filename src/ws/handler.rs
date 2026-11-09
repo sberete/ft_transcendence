@@ -1,3 +1,9 @@
+// The WebSocket connection lifecycle and protocol dispatch: Origin
+// check, the auth handshake, the read loop with rate limiting and
+// inactivity timeout, and one handler per client message type
+// (room join/leave, chat, playback control). Talks to `registry` for
+// all shared room state and to the database for anything durable.
+
 use std::time::{Duration, Instant};
 
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
@@ -23,6 +29,9 @@ const CHAT_LIMIT: (u32, Duration) = (5, Duration::from_secs(5));
 const PLAYBACK_LIMIT: (u32, Duration) = (10, Duration::from_secs(5));
 const MAX_RATE_VIOLATIONS: u32 = 5;
 
+// Entry point for `GET /ws`: rejects unknown Origins (WebSockets aren't
+// covered by CORS, so this check stands in for it), then upgrades the
+// connection and hands it off to `handle_socket`.
 pub async fn upgrade(ws: WebSocketUpgrade, State(state): State<WsState>, headers: HeaderMap)
     -> Response
 {
@@ -36,13 +45,15 @@ pub async fn upgrade(ws: WebSocketUpgrade, State(state): State<WsState>, headers
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
+// Splits the socket into a dedicated writer task and the read loop:
+// everything else pushes into `tx` instead of writing to the socket
+// directly, so messages coming from OTHER connections (broadcasts) can
+// be delivered without fighting over the sink. Closes with the proper
+// code once the read loop (`run_connection`) decides the connection is done.
 async fn handle_socket(socket: WebSocket, state: WsState) {
     let (mut sink, mut stream) = socket.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 
-    // Tache dediee a l'ecriture : tout le reste pousse dans `tx` au lieu
-    // d'ecrire directement sur le socket, pour pouvoir recevoir des messages
-    // venant d'AUTRES connexions (diffusion) sans se les disputer.
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             if sink.send(msg).await.is_err() {
@@ -60,6 +71,7 @@ async fn handle_socket(socket: WebSocket, state: WsState) {
     let _ = writer.await;
 }
 
+// Human-readable reason for a given WebSocket close code (see docs/websocket.md).
 fn close_reason(code: u16) -> &'static str {
     match code {
         4400 => "bad message",
@@ -70,6 +82,10 @@ fn close_reason(code: u16) -> &'static str {
     }
 }
 
+// The main per-connection loop: authenticates first, then reads frames
+// until a close condition is hit (inactivity, bad frame, repeated rate
+// limit violations, or a normal close), dispatching each valid message
+// to its handler. Always leaves the current room on the way out.
 async fn run_connection(stream: &mut SplitStream<WebSocket>, tx: &OutgoingTx, state: &WsState) -> u16 {
     let user = match authenticate_first_message(stream, &state.pool).await {
         Some(user) => user,
@@ -86,9 +102,9 @@ async fn run_connection(stream: &mut SplitStream<WebSocket>, tx: &OutgoingTx, st
         let frame = match timeout(INACTIVITY_TIMEOUT, stream.next()).await {
             Ok(Some(Ok(Message::Text(text)))) => text,
             Ok(Some(Ok(Message::Close(_)))) | Ok(None) => break 1000,
-            Ok(Some(Ok(_))) => continue, // ping/pong/binary : ignores
+            Ok(Some(Ok(_))) => continue, // ping/pong/binary: ignored
             Ok(Some(Err(_))) => break 1000,
-            Err(_) => break 4408, // inactivite
+            Err(_) => break 4408, // inactivity
         };
 
         if frame.len() > MAX_FRAME_BYTES {
@@ -156,7 +172,9 @@ async fn run_connection(stream: &mut SplitStream<WebSocket>, tx: &OutgoingTx, st
     close_code
 }
 
-// Le premier message doit etre `auth` dans les 5 secondes, sinon 4401.
+// The first message must be `auth` within 5 seconds, otherwise the
+// connection is rejected (close code 4401). Resolves the token to a
+// full UserRef (id, username, avatar) in the same step.
 async fn authenticate_first_message(stream: &mut SplitStream<WebSocket>, pool: &PgPool) -> Option<UserRef> {
     let Ok(Some(Ok(Message::Text(text)))) = timeout(AUTH_TIMEOUT, stream.next()).await else {
         return None;
@@ -180,6 +198,10 @@ async fn authenticate_first_message(stream: &mut SplitStream<WebSocket>, pool: &
     Some(UserRef { id: user_id, username, avatar_url })
 }
 
+// Leaves whatever room this connection is currently in (if any), looks
+// up the target room by its public code, joins the in-memory registry,
+// and sends back the full room state while announcing the new member
+// to everyone already there.
 async fn handle_join(
     state: &WsState,
     tx: &OutgoingTx,
@@ -190,8 +212,8 @@ async fn handle_join(
 {
     leave_current_room(state, tx, user, current_room).await;
 
-    // code -> id interne : le registre en memoire est indexe par l'id (jamais
-    // expose), seul le code voyage avec le client.
+    // code -> internal id: the in-memory registry is indexed by id (never
+    // exposed), only the code travels with the client.
     let room_row: Option<(i64, String, i64)> =
         sqlx::query_as("SELECT id, name, owner_id FROM rooms WHERE code = $1")
             .bind(&code)
@@ -219,6 +241,9 @@ async fn handle_join(
     );
 }
 
+// Removes this user from their current room in the registry (if any),
+// deletes the room row once it's empty, or persists and announces an
+// ownership transfer if the owner was the one leaving.
 async fn leave_current_room(state: &WsState, _tx: &OutgoingTx, user: &UserRef, current_room: &mut Option<(i64, i64)>) {
     let Some((room_id, _owner_id)) = current_room.take() else { return };
 
@@ -245,6 +270,8 @@ async fn leave_current_room(state: &WsState, _tx: &OutgoingTx, user: &UserRef, c
     }
 }
 
+// Validates and persists a chat message, then broadcasts it to every
+// current member of the room (including the sender).
 async fn handle_chat_send(state: &WsState, tx: &OutgoingTx, user: &UserRef, current_room: Option<(i64, i64)>, content: String) {
     let Some((room_id, _)) = current_room else {
         send(tx, &ServerMessage::error("not_in_room", "join a room first"));
@@ -280,6 +307,8 @@ async fn handle_chat_send(state: &WsState, tx: &OutgoingTx, user: &UserRef, curr
     broadcast(&state.rooms.members_tx(room_id), &message);
 }
 
+// Changes the room's video, owner-only, after validating the
+// provider/id pair, and broadcasts the resulting playback reset.
 async fn handle_set_media(
     state: &WsState,
     tx: &OutgoingTx,
@@ -307,6 +336,8 @@ async fn handle_set_media(
     }
 }
 
+// Handles play/pause: any member (not just the owner) may drive
+// playback, per the protocol's rules.
 async fn handle_playback(
     state: &WsState,
     tx: &OutgoingTx,
@@ -326,6 +357,7 @@ async fn handle_playback(
     }
 }
 
+// Handles a seek: jumps to a new position without touching play/pause state.
 async fn handle_seek(state: &WsState, tx: &OutgoingTx, current_room: Option<(i64, i64)>, user_id: i64, position: f64) {
     let Some((room_id, _)) = current_room else {
         send(tx, &ServerMessage::error("not_in_room", "join a room first"));
@@ -337,6 +369,8 @@ async fn handle_seek(state: &WsState, tx: &OutgoingTx, current_room: Option<(i64
     }
 }
 
+// Shared tail end of every playback-changing handler: wraps a registry
+// snapshot into a `playback.state` message and broadcasts it.
 fn broadcast_playback_state(notify: &[OutgoingTx], snapshot: super::protocol::PlaybackRef, media: Option<MediaRef>, by: i64) {
     broadcast(
         notify,
@@ -350,8 +384,8 @@ fn broadcast_playback_state(notify: &[OutgoingTx], snapshot: super::protocol::Pl
     );
 }
 
-// Best-effort, comme les autres notifications : ne doit jamais bloquer le
-// transfert de propriete lui-meme (deja applique en DB avant cet appel).
+// Best-effort, like other notifications: must never block the
+// ownership transfer itself (already applied to the database before this call).
 async fn notify_ownership_transfer(pool: &PgPool, room_id: i64, new_owner_id: i64) {
     let Ok(Some((code, name))) = sqlx::query_as::<_, (String, String)>(
         "SELECT code, name FROM rooms WHERE id = $1",
@@ -369,12 +403,14 @@ async fn notify_ownership_transfer(pool: &PgPool, room_id: i64, new_owner_id: i6
     }
 }
 
+// Sends one message to a single connection's outgoing channel.
 fn send(tx: &OutgoingTx, message: &ServerMessage) {
     if let Ok(text) = serde_json::to_string(message) {
         let _ = tx.send(Message::Text(text.into()));
     }
 }
 
+// Sends the same message to every channel in `targets`, serializing it only once.
 fn broadcast(targets: &[OutgoingTx], message: &ServerMessage) {
     let Ok(text) = serde_json::to_string(message) else { return };
     for target in targets {
@@ -390,10 +426,13 @@ struct RateLimiter {
 }
 
 impl RateLimiter {
+    // Creates a limiter allowing `max` actions per `window`.
     fn new(max: u32, window: Duration) -> Self {
         RateLimiter { max, window, count: 0, window_start: Instant::now() }
     }
 
+    // True if another action is still allowed in the current window
+    // (and counts it); resets the window once it has elapsed.
     fn allow(&mut self) -> bool {
         let now = Instant::now();
         if now.duration_since(self.window_start) >= self.window {

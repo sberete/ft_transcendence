@@ -1,5 +1,5 @@
-// Limite les tentatives de /auth/login par IP, pour ralentir le brute force
-// sur les mots de passe. Partage entre les handlers via Extension, comme
+// Limits /auth/login attempts per IP, to slow down password brute
+// forcing. Shared between handlers via Extension, like
 // OAuthConfig/MediaClient.
 
 use std::collections::HashMap;
@@ -20,11 +20,13 @@ pub struct LoginRateLimiter {
 }
 
 impl LoginRateLimiter {
+    // Creates an empty limiter, one bucket per IP created on first use.
     pub fn new() -> Self {
         LoginRateLimiter { buckets: Arc::new(Mutex::new(HashMap::new())) }
     }
 
-    // Vrai si cette IP est encore sous la limite (et compte la tentative).
+    // True if this IP is still under the limit (and counts the attempt).
+    // Resets the bucket once the sliding window has elapsed.
     pub fn allow(&self, key: &str) -> bool {
         let mut buckets = self.buckets.lock().unwrap();
         let now = Instant::now();

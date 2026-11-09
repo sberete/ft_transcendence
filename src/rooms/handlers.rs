@@ -1,3 +1,7 @@
+// HTTP handlers for the one-off room actions: creating a room (with a
+// random 6-digit code and a friend notification), reading its
+// metadata, and paging through its chat history.
+
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
@@ -54,6 +58,7 @@ pub struct ChatMessageView {
 }
 
 impl From<MessageRow> for ChatMessageView {
+    // Reshapes a flat SQL row into the nested JSON shape the frontend expects.
     fn from(row: MessageRow) -> Self {
         ChatMessageView {
             id: row.id,
@@ -70,11 +75,14 @@ impl From<MessageRow> for ChatMessageView {
 
 const MAX_CODE_ATTEMPTS: u32 = 5;
 
+// Generates a random 6-digit room code (as a zero-padded string).
 fn random_code() -> String {
     use rand::Rng;
     format!("{:06}", rand::thread_rng().gen_range(0..1_000_000))
 }
 
+// Creates a room with a random code, retrying on the rare collision,
+// then notifies this user's friends that a session has started.
 pub async fn create_room(auth: AuthUser, State(pool): State<PgPool>, Json(payload): Json<CreateRoomRequest>)
     -> Result<(StatusCode, Json<RoomView>), ApiError>
 {
@@ -82,8 +90,8 @@ pub async fn create_room(auth: AuthUser, State(pool): State<PgPool>, Json(payloa
         return Err(ApiError::BadRequest("room name is required".into()));
     }
 
-    // Quelques tentatives en cas de collision sur le code (tres improbable
-    // a 10^6 valeurs, mais une contrainte UNIQUE existe donc autant la gerer).
+    // A few attempts in case of a code collision (very unlikely out of
+    // 10^6 values, but a UNIQUE constraint exists, so it's worth handling).
     for _ in 0..MAX_CODE_ATTEMPTS {
         let code = random_code();
         let result: Result<RoomView, sqlx::Error> = sqlx::query_as(
@@ -109,9 +117,9 @@ pub async fn create_room(auth: AuthUser, State(pool): State<PgPool>, Json(payloa
     Err(ApiError::Internal)
 }
 
-// "Un ami lance une session" (notifications, [à faire] -> fait le
-// 2026-11-02) : best-effort, ne doit jamais faire echouer la creation du
-// salon elle-meme.
+// Notifies every accepted friend that this user just started a session
+// ("a friend starts a session" notification). Best-effort: must never
+// fail the room creation itself.
 async fn notify_friends_of_new_room(pool: &PgPool, owner_id: i64, room: &RoomView) {
     let Some((username, avatar_url)): Option<(String, Option<String>)> =
         sqlx::query_as("SELECT username, avatar_url FROM users WHERE id = $1")
@@ -147,6 +155,7 @@ async fn notify_friends_of_new_room(pool: &PgPool, owner_id: i64, room: &RoomVie
     }
 }
 
+// Looks up a room's metadata by its public code.
 pub async fn get_room(_auth: AuthUser, State(pool): State<PgPool>, Path(code): Path<String>)
     -> Result<Json<RoomView>, ApiError>
 {
@@ -160,6 +169,7 @@ pub async fn get_room(_auth: AuthUser, State(pool): State<PgPool>, Path(code): P
     Ok(Json(room))
 }
 
+// Pages through a room's chat history, newest first, optionally before a given message id.
 pub async fn list_messages(
     _auth: AuthUser,
     State(pool): State<PgPool>,

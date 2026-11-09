@@ -1,4 +1,6 @@
 <script setup>
+// Sticky top navigation bar: logo, nav links, locale switcher, search box,
+// notification bell, and the account dropdown (profile/friends/logout).
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -20,17 +22,19 @@ const scrolled = ref(false)
 const menuOpen = ref(false)
 const menu = ref(null)
 
-// Garde le champ synchronise si on arrive sur /search via un lien ou l'historique.
+// Keeps the search field in sync when arriving on /search via a link or browser history.
 watch(() => route.query.q, (q) => {
   query.value = q || ''
 })
 
 watch(token, loadUser)
 
+// Toggles the solid header background once the page has scrolled a bit.
 function onScroll() {
   scrolled.value = window.scrollY > 10
 }
 
+// Closes the account dropdown when clicking anywhere outside it.
 function onClickOutside(event) {
   if (menu.value && !menu.value.contains(event.target)) {
     menuOpen.value = false
@@ -48,17 +52,19 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onClickOutside)
 })
 
+// Navigates to the search page with the current query.
 function handleSearch() {
   const q = query.value.trim()
   if (q) router.push({ path: '/search', query: { q } })
 }
 
+// Logs out server-side (best-effort) and clears the local session.
 async function handleLogout() {
   menuOpen.value = false
   try {
     await apiLogout(token.value)
   } catch {
-    // token deja invalide/expire cote serveur, on nettoie quand meme localement
+    // Token already invalid/expired server-side, clear it locally anyway.
   }
   clearToken()
   router.push('/login')

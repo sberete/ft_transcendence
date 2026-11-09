@@ -1,5 +1,5 @@
 <script setup>
-// Cadre commun aux pages connexion / inscription.
+// Shared visual frame for the login/signup pages.
 defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },

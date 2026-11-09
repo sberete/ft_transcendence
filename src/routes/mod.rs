@@ -1,10 +1,12 @@
+// Top-level route table: mounts every module's own router under its
+// path prefix. Each new module gets one more `nest()` call here.
+
 use axum::Router;
 use sqlx::PgPool;
 
 use crate::ws::RoomRegistry;
 
-// Chaque phase ajoute son propre sous-module ici (auth, users, friends, ws, media...)
-// et le nest() ici.
+// Assembles the full REST + WebSocket router served by the backend.
 pub fn router(pool: PgPool, rooms: RoomRegistry, frontend_origins: Vec<String>) -> Router<PgPool> {
     Router::new()
         .nest("/auth", crate::auth::router())

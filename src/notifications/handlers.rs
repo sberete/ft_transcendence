@@ -1,3 +1,6 @@
+// HTTP handlers for listing and acknowledging notifications, plus the
+// `create` helper used by other modules to fire one off.
+
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
@@ -20,6 +23,7 @@ pub struct NotificationView {
     created_at: DateTime<Utc>,
 }
 
+// Lists this user's most recent notifications, newest first.
 pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
     -> Result<Json<Vec<NotificationView>>, ApiError>
 {
@@ -39,6 +43,7 @@ pub async fn list(auth: AuthUser, State(pool): State<PgPool>)
     Ok(Json(notifications))
 }
 
+// Marks a single notification as read, scoped to its owner.
 pub async fn mark_read(auth: AuthUser, State(pool): State<PgPool>, Path(id): Path<i64>)
     -> Result<StatusCode, ApiError>
 {
@@ -56,6 +61,7 @@ pub async fn mark_read(auth: AuthUser, State(pool): State<PgPool>, Path(id): Pat
     Ok(StatusCode::NO_CONTENT)
 }
 
+// Marks every unread notification for this user as read in one go.
 pub async fn mark_all_read(auth: AuthUser, State(pool): State<PgPool>)
     -> Result<StatusCode, ApiError>
 {
@@ -68,11 +74,10 @@ pub async fn mark_all_read(auth: AuthUser, State(pool): State<PgPool>)
     Ok(StatusCode::NO_CONTENT)
 }
 
-// Utilise par les autres modules (friends, rooms, ws) pour creer une
-// notification. Best-effort partout ou c'est appele : un echec ici ne doit
-// jamais faire echouer l'action principale (demande d'ami, creation de
-// salon...), donc les appelants loggent et ignorent l'erreur plutot que de
-// la propager.
+// Used by other modules (friends, rooms, ws) to create a notification.
+// Best-effort everywhere it's called: a failure here must never fail the
+// main action (friend request, room creation...), so callers log and
+// ignore the error instead of propagating it.
 pub async fn create(pool: &PgPool, user_id: i64, kind: &str, payload: Value) -> Result<(), sqlx::Error> {
     sqlx::query("INSERT INTO notifications (user_id, kind, payload) VALUES ($1, $2, $3)")
         .bind(user_id)

@@ -1,4 +1,6 @@
 <script setup>
+// Rooms lobby: create a new room, or join an existing one by code or
+// pasted invite link.
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -14,6 +16,7 @@ const joinId = ref('')
 const error = ref('')
 const creating = ref(false)
 
+// Creates a new room and navigates straight into it.
 async function handleCreate() {
   error.value = ''
   creating.value = true
@@ -27,9 +30,10 @@ async function handleCreate() {
   }
 }
 
+// Navigates to a room from either a bare code or a full invite link.
 function handleJoin() {
-  // Accepte aussi bien "123456" qu'un lien colle en entier
-  // (https://.../room/123456) : on ne garde que le code a la fin.
+  // Accepts both "123456" and a fully pasted link
+  // (https://.../room/123456): only the trailing code is kept.
   const input = joinId.value.trim()
   const code = input.match(/(\d{6})\/?$/)?.[1]
   if (code) router.push(`/room/${code}`)
