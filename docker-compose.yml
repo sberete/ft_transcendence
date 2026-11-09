@@ -8,9 +8,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - db_data:/var/lib/postgresql/data
-    # Limite a 127.0.0.1 : joignable en local (psql, make dev) mais plus
-    # depuis le reseau - le backend Docker, lui, passe par "db:5432" en
-    # interne et n'en a pas besoin.
+    # Limited to 127.0.0.1: reachable locally (psql, make dev) but no
+    # longer from the network - the Docker backend itself goes through
+    # "db:5432" internally and doesn't need this.
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -35,8 +35,8 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-    # Pas de port publie : le navigateur ne parle qu'a nginx (HTTPS), jamais
-    # au backend en direct. Seul le reseau Docker interne y a acces.
+    # No published port: the browser only talks to nginx (HTTPS), never
+    # directly to the backend. Only the internal Docker network can reach it.
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -49,9 +49,9 @@ services:
       dockerfile: docker/frontend/Dockerfile
     restart: unless-stopped
     environment:
-      # Cible que nginx reverse-proxy pour /api et /uploads. Le nom de
-      # service Docker par defaut ; `make dev` le fait pointer vers
-      # host.docker.internal pour un backend natif (cargo run), voir Makefile.
+      # Target that nginx reverse-proxies for /api and /uploads. Defaults
+      # to the Docker service name; `make dev` points it at
+      # host.docker.internal for a native backend (cargo run), see Makefile.
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-http://backend:3000}
     ports:
       - "8080:443"

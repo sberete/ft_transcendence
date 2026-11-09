@@ -1,10 +1,10 @@
 FROM rust:1-slim-bookworm AS builder
 WORKDIR /app
 
-# Evite l'OOM sur les petites VM Docker (compilation parallele = pic de RAM)
+# Avoids OOM on small Docker VMs (parallel compilation = RAM spike)
 ENV CARGO_BUILD_JOBS=2
 
-# Cache les dependances separement du code source
+# Caches dependencies separately from the source code
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release

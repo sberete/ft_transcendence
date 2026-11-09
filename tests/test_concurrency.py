@@ -1,17 +1,17 @@
-"""Tests de concurrence multi-utilisateurs contre la stack Docker reelle.
+"""Multi-user concurrency tests against the real Docker stack.
 
-Complete le script ad hoc de verification des recommandations : ici on
-cherche specifiquement des races (plusieurs clients qui agissent en meme
-temps sur la meme ressource), pas juste un scenario sequentiel.
+Complements the ad hoc recommendation-verification script: here we
+specifically look for races (several clients acting at the same time on
+the same resource), not just a sequential scenario.
 
-Prerequis : la stack doit tourner (`docker compose up`) et etre joignable
-sur https://localhost:8080. Necessite le paquet `websockets` :
+Prerequisites: the stack must be running (`docker compose up`) and
+reachable at https://localhost:8080. Requires the `websockets` package:
 
     python3 -m venv .venv && .venv/bin/pip install websockets
     .venv/bin/python3 tests/test_concurrency.py
 
-Chaque scenario est independant : un echec dans l'un n'empeche pas les
-autres de s'executer (voir `run_all` en bas de fichier).
+Each scenario is independent: a failure in one doesn't stop the others
+from running (see `run_all` at the bottom of the file).
 """
 
 import asyncio
@@ -26,9 +26,9 @@ import websockets
 BASE = "https://localhost:8080/api"
 WS_BASE = "wss://localhost:8080/api/ws"
 
-# Certificat auto-signe (voir docs/browser-testing.md / le reverse proxy
-# nginx) : on ne verifie pas la chaine, comme les autres scripts de test
-# de ce projet.
+# Self-signed certificate (see docs/browser-testing.md / the nginx reverse
+# proxy): we don't verify the chain, same as the project's other test
+# scripts.
 SSL_CTX = ssl.create_default_context()
 SSL_CTX.check_hostname = False
 SSL_CTX.verify_mode = ssl.CERT_NONE
@@ -69,10 +69,10 @@ def signup_login(prefix, suffix, password="Sup3rSecret!"):
 
 
 class WsClient:
-    """Petit wrapper : connecte, authentifie, et laisse piocher les
-    messages serveur par type plutot que de tout lire en ordre strict
-    (plusieurs evenements peuvent arriver dans un ordre different selon
-    le client, par nature meme de ce qu'on teste ici)."""
+    """Small wrapper: connects, authenticates, and lets you pick server
+    messages by type rather than reading everything in strict order
+    (several events can arrive in a different order depending on the
+    client, by the very nature of what's being tested here)."""
 
     def __init__(self, ws):
         self.ws = ws
@@ -80,10 +80,9 @@ class WsClient:
 
     @classmethod
     async def connect_and_auth(cls, token):
-        # Le serveur rejette toute connexion WebSocket dont l'Origin n'est
-        # pas celle du front connu (voir src/ws/handler.rs) - les WebSockets
-        # ne passent pas par le CORS classique, c'est cette verif manuelle
-        # qui en tient lieu.
+        # The server rejects any WebSocket connection whose Origin isn't
+        # the known frontend's (see src/ws/handler.rs) - WebSockets don't
+        # go through regular CORS, this manual check stands in for it.
         ws = await websockets.connect(WS_BASE, ssl=SSL_CTX, origin="https://localhost:8080")
         await ws.send(json.dumps({"type": "auth", "token": token}))
         raw = await asyncio.wait_for(ws.recv(), timeout=5)
@@ -101,9 +100,9 @@ class WsClient:
         return msg
 
     async def recv_until(self, type_, timeout=5):
-        """Lit des messages jusqu'a trouver `type_`, en gardant les
-        autres dans l'inbox (on ne suppose pas un ordre fixe entre
-        clients concurrents)."""
+        """Reads messages until `type_` is found, keeping the others in
+        the inbox (we don't assume a fixed order between concurrent
+        clients)."""
         async with asyncio.timeout(timeout):
             while True:
                 msg = await self.recv(timeout=timeout)
@@ -111,10 +110,9 @@ class WsClient:
                     return msg
 
     async def drain(self, quiet_for=0.5):
-        """Lit tout ce qui arrive jusqu'a `quiet_for` secondes sans nouveau
-        message - pour laisser le temps aux diffusions asynchrones
-        (room.member_joined) d'arriver avant de juger l'etat final d'un
-        client."""
+        """Reads everything that arrives until `quiet_for` seconds pass
+        with no new message - to give async broadcasts (room.member_joined)
+        time to arrive before judging a client's final state."""
         while True:
             try:
                 await self.recv(timeout=quiet_for)
@@ -126,9 +124,9 @@ class WsClient:
 
 
 async def test_concurrent_signup_same_username():
-    """Deux inscriptions simultanees avec EXACTEMENT le meme username :
-    la contrainte unique de Postgres doit laisser passer une seule des
-    deux requetes, jamais les deux, jamais aucune (pas de deadlock)."""
+    """Two simultaneous signups with EXACTLY the same username: Postgres's
+    unique constraint must let exactly one of the two requests through,
+    never both, never neither (no deadlock)."""
     username = f"race_{uuid.uuid4().hex[:8]}"
 
     results = await asyncio.gather(*[
@@ -136,25 +134,25 @@ async def test_concurrent_signup_same_username():
     ])
     statuses = [status for status, _ in results]
 
-    assert statuses.count(201) == 1, f"attendu exactement 1 succes, obtenu {statuses}"
-    assert statuses.count(409) == 4, f"attendu 4 conflits 409, obtenu {statuses}"
-    print("OK: inscription concurrente du meme username -> exactement 1 gagnant, 4x 409")
+    assert statuses.count(201) == 1, f"expected exactly 1 success, got {statuses}"
+    assert statuses.count(409) == 4, f"expected 4 409 conflicts, got {statuses}"
+    print("OK: concurrent signup with the same username -> exactly 1 winner, 4x 409")
 
 
 async def test_concurrent_room_join():
-    """4 utilisateurs rejoignent la meme salle en meme temps (pas les
-    uns apres les autres) : tout le monde doit finir par voir une salle
-    a 4 membres, sans doublon ni membre manquant."""
+    """4 users join the same room at the same time (not one after
+    another): everyone must end up seeing a room with 4 members, with no
+    duplicate and no one missing."""
     suffix = uuid.uuid4().hex[:8]
     owner = await asyncio.to_thread(signup_login, "owner", suffix)
-    status, room = http("POST", "/rooms", token=owner["token"], body={"name": "Test concurrence"})
+    status, room = http("POST", "/rooms", token=owner["token"], body={"name": "Concurrency test"})
     assert status == 201, (status, room)
     code = room["code"]
 
-    # 3 et pas plus : chaque scenario de ce fichier consomme des connexions
-    # (login) qui partagent le meme quota anti-bruteforce (10/60s par IP,
-    # voir docs JOURNAL 2026-10-29) - total vise sous 10 sur l'ensemble du
-    # fichier pour qu'un run complet ne se bloque pas lui-meme.
+    # 3, not more: every scenario in this file consumes logins that share
+    # the same anti-bruteforce quota (10/60s per IP, see the JOURNAL docs
+    # from 2026-10-29) - aiming to stay under 10 across the whole file so a
+    # full run doesn't block itself.
     guests = await asyncio.gather(*[
         asyncio.to_thread(signup_login, f"guest{i}", suffix) for i in range(2)
     ])
@@ -162,22 +160,22 @@ async def test_concurrent_room_join():
 
     clients = await asyncio.gather(*[WsClient.connect_and_auth(u["token"]) for u in users])
 
-    # Les 4 envoient room.join EN MEME TEMPS (pas sequentiellement), le
-    # point du test : si le serveur serialise mal l'entree dans la salle,
-    # un membre peut se retrouver absent de la vue finale de quelqu'un
-    # d'autre, ou duplique.
+    # All 4 send room.join AT THE SAME TIME (not sequentially), the whole
+    # point of this test: if the server serializes joining the room
+    # incorrectly, a member could end up missing from someone else's final
+    # view, or duplicated.
     await asyncio.gather(*[c.send(type="room.join", code=code) for c in clients])
 
     states = await asyncio.gather(*[c.recv_until("room.state") for c in clients])
 
-    # Le serveur serialise les room.join (un seul Mutex sur le registre, voir
-    # src/ws/registry.rs) : `room.state.members` ne liste QUE ceux deja
-    # presents avant moi (voir le commentaire de roomSocket.js:9-12, le
-    # frontend se rajoute lui-meme) - donc la taille de ce snapshot varie
-    # selon l'ordre d'arrivee reel, pas forcement 0 ni 3. Ce qui doit rester
-    # vrai pour tout le monde : en combinant son propre snapshot + les
-    # room.member_joined recus ensuite + soi-meme, chaque client doit finir
-    # par connaitre exactement les 4 membres, sans doublon ni absent.
+    # The server serializes room.join (a single Mutex on the registry, see
+    # src/ws/registry.rs): `room.state.members` lists ONLY those already
+    # present before me (see the comment in roomSocket.js:9-12, the
+    # frontend adds itself) - so this snapshot's size varies depending on
+    # the actual arrival order, not necessarily 0 or 3. What must stay true
+    # for everyone: combining one's own snapshot + the room.member_joined
+    # events received afterward + oneself, every client must end up
+    # knowing exactly the 4 members, with no duplicate and none missing.
     await asyncio.gather(*[c.drain(quiet_for=1.0) for c in clients])
     for user, client, state in zip(users, clients, states):
         known_ids = {m["id"] for m in state["members"]}
@@ -188,25 +186,25 @@ async def test_concurrent_room_join():
         assert status == 200, (status, me)
         known_ids.add(me["id"])
         assert len(known_ids) == 3, (
-            f"{user['username']} ne connait que {len(known_ids)} membre(s) sur 3 : {known_ids}"
+            f"{user['username']} only knows {len(known_ids)} member(s) out of 3: {known_ids}"
         )
 
     await asyncio.gather(*[c.close() for c in clients])
-    print("OK: 3 room.join concurrents -> tout le monde finit par connaitre les 3 membres, sans doublon ni absent")
+    print("OK: 3 concurrent room.join -> everyone ends up knowing all 3 members, no duplicate, none missing")
 
 
 async def test_concurrent_ownership_transfer():
-    """Le proprietaire part alors qu'un deuxieme evenement (un message de
-    chat de l'autre invite) arrive EXACTEMENT au meme moment : la salle ne
-    doit ni disparaitre (il reste des membres), ni finir sans proprietaire,
-    et le nouveau proprietaire doit etre celui present depuis le plus
-    longtemps (section 9.3 de docs/websocket.md)."""
+    """The owner leaves while a second event (a chat message from the
+    other guest) arrives at EXACTLY the same moment: the room must neither
+    disappear (members remain) nor end up without an owner, and the new
+    owner must be the one present the longest (section 9.3 of
+    docs/websocket.md)."""
     suffix = uuid.uuid4().hex[:8]
     owner = await asyncio.to_thread(signup_login, "owner2", suffix)
     guest1 = await asyncio.to_thread(signup_login, "guest1b", suffix)
     guest2 = await asyncio.to_thread(signup_login, "guest2b", suffix)
 
-    status, room = http("POST", "/rooms", token=owner["token"], body={"name": "Test transfert"})
+    status, room = http("POST", "/rooms", token=owner["token"], body={"name": "Ownership transfer test"})
     assert status == 201, (status, room)
     code = room["code"]
 
@@ -214,7 +212,7 @@ async def test_concurrent_ownership_transfer():
     await c_owner.send(type="room.join", code=code)
     await c_owner.recv_until("room.state")
 
-    # guest1 rejoint avant guest2 : c'est lui qui doit devenir proprietaire.
+    # guest1 joins before guest2: they're the one who should become owner.
     c_guest1 = await WsClient.connect_and_auth(guest1["token"])
     await c_guest1.send(type="room.join", code=code)
     await c_guest1.recv_until("room.state")
@@ -226,11 +224,11 @@ async def test_concurrent_ownership_transfer():
     await c_owner.recv_until("room.member_joined")
     await c_guest1.recv_until("room.member_joined")
 
-    # Le depart du proprietaire et un message de chat d'un invite partent
-    # dans le meme batch, sans attendre l'un l'autre.
+    # The owner leaving and a guest's chat message are sent in the same
+    # batch, without waiting on each other.
     await asyncio.gather(
         c_owner.send(type="room.leave"),
-        c_guest2.send(type="chat.send", content="toujours la ?"),
+        c_guest2.send(type="chat.send", content="still there?"),
     )
 
     left_guest1 = await c_guest1.recv_until("room.member_left")
@@ -238,30 +236,30 @@ async def test_concurrent_ownership_transfer():
 
     status, refreshed = http("GET", f"/rooms/{code}", token=guest1["token"])
     assert status == 200, (status, refreshed)
-    assert refreshed["owner_id"] is not None, "la salle s'est retrouvee sans proprietaire"
-    assert left_guest1["new_owner_id"] == left_guest2["new_owner_id"], "incoherence entre les deux clients sur le nouveau proprietaire"
+    assert refreshed["owner_id"] is not None, "the room ended up without an owner"
+    assert left_guest1["new_owner_id"] == left_guest2["new_owner_id"], "mismatch between the two clients on the new owner"
 
-    # guest1 a rejoint avant guest2 : c'est lui le plus ancien membre present.
+    # guest1 joined before guest2: they're the oldest member present.
     guest1_id = (await asyncio.to_thread(http, "GET", "/users/me", guest1["token"]))[1]["id"]
     assert left_guest1["new_owner_id"] == guest1_id, (
-        f"le nouveau proprietaire devrait etre guest1 ({guest1_id}), "
-        f"obtenu {left_guest1['new_owner_id']}"
+        f"the new owner should be guest1 ({guest1_id}), "
+        f"got {left_guest1['new_owner_id']}"
     )
 
     await asyncio.gather(c_guest1.close(), c_guest2.close())
-    print("OK: transfert de propriete concurrent avec un chat simultane -> coherent pour tout le monde")
+    print("OK: concurrent ownership transfer with a simultaneous chat message -> consistent for everyone")
 
 
 async def test_concurrent_playback_commands():
-    """Deux membres (n'importe lequel peut piloter la lecture, section 9.1)
-    envoient play et pause EN MEME TEMPS sur des positions differentes :
-    le serveur doit retenir UN seul etat final coherent, diffuse a tout le
-    monde a l'identique - pas un etat different par client, pas de crash."""
+    """Two members (anyone can control playback, section 9.1) send play
+    and pause AT THE SAME TIME at different positions: the server must
+    settle on a SINGLE consistent final state, broadcast identically to
+    everyone - not a different state per client, no crash."""
     suffix = uuid.uuid4().hex[:8]
     owner = await asyncio.to_thread(signup_login, "pbowner", suffix)
     guest = await asyncio.to_thread(signup_login, "pbguest", suffix)
 
-    status, room = http("POST", "/rooms", token=owner["token"], body={"name": "Test playback"})
+    status, room = http("POST", "/rooms", token=owner["token"], body={"name": "Playback test"})
     assert status == 201, (status, room)
     code = room["code"]
 
@@ -282,13 +280,13 @@ async def test_concurrent_playback_commands():
     state_owner = await c_owner.recv_until("playback.state")
     state_guest = await c_guest.recv_until("playback.state")
 
-    # Peu importe lequel des deux "gagne" (le serveur traite les messages
-    # dans l'ordre ou il les recoit, pas d'ambiguite cote serveur) - ce qui
-    # compte est que TOUT LE MONDE voie exactement le meme etat final.
+    # It doesn't matter which of the two "wins" (the server processes
+    # messages in the order it receives them, no ambiguity server-side) -
+    # what matters is that EVERYONE sees exactly the same final state.
     assert state_owner["playing"] == state_guest["playing"]
     assert state_owner["position"] == state_guest["position"]
     print(
-        "OK: playback.play/pause concurrents -> etat final identique pour les deux clients "
+        "OK: concurrent playback.play/pause -> identical final state for both clients "
         f"(playing={state_owner['playing']}, position={state_owner['position']})"
     )
 
@@ -296,13 +294,13 @@ async def test_concurrent_playback_commands():
 
 
 async def test_rate_limit_burst():
-    """Rafale de plus de 10 commandes de lecture en moins de 5s (limite du
-    chap. 8 de docs/websocket.md) : le serveur doit repondre `rate_limited`
-    sans planter la connexion, pas juste la fermer brutalement ou l'ignorer
-    silencieusement."""
+    """A burst of more than 10 playback commands in under 5s (the limit
+    from chap. 8 of docs/websocket.md): the server must reply with
+    `rate_limited` without crashing the connection, not just close it
+    abruptly or silently ignore it."""
     suffix = uuid.uuid4().hex[:8]
     user = await asyncio.to_thread(signup_login, "burst", suffix)
-    status, room = http("POST", "/rooms", token=user["token"], body={"name": "Test rate limit"})
+    status, room = http("POST", "/rooms", token=user["token"], body={"name": "Rate limit test"})
     assert status == 201, (status, room)
 
     c = await WsClient.connect_and_auth(user["token"])
@@ -321,10 +319,10 @@ async def test_rate_limit_burst():
         elif msg["type"] == "playback.state":
             saw_states += 1
 
-    assert saw_rate_limited, "aucune erreur rate_limited recue malgre la rafale de 15 commandes"
-    assert saw_states <= 10, f"plus de 10 commandes acceptees avant la limite : {saw_states}"
+    assert saw_rate_limited, "no rate_limited error received despite the burst of 15 commands"
+    assert saw_states <= 10, f"more than 10 commands accepted before the limit kicked in: {saw_states}"
     await c.close()
-    print(f"OK: rafale de 15 commandes -> rate_limited declenche ({saw_states} acceptees avant la limite)")
+    print(f"OK: burst of 15 commands -> rate_limited triggered ({saw_states} accepted before the limit)")
 
 
 async def run_all():
@@ -339,15 +337,15 @@ async def run_all():
     for scenario in scenarios:
         try:
             await scenario()
-        except Exception as exc:  # noqa: BLE001 - on veut continuer malgre un echec
+        except Exception as exc:  # noqa: BLE001 - we want to keep going despite a failure
             failures.append((scenario.__name__, exc))
-            print(f"ECHEC: {scenario.__name__}: {exc!r}")
+            print(f"FAILED: {scenario.__name__}: {exc!r}")
 
     print()
     if failures:
-        print(f"{len(failures)}/{len(scenarios)} scenario(s) en echec")
+        print(f"{len(failures)}/{len(scenarios)} scenario(s) failed")
         raise SystemExit(1)
-    print(f"TOUS LES SCENARIOS DE CONCURRENCE ONT PASSE ({len(scenarios)}/{len(scenarios)})")
+    print(f"ALL CONCURRENCY SCENARIOS PASSED ({len(scenarios)}/{len(scenarios)})")
 
 
 if __name__ == "__main__":

@@ -1,72 +1,72 @@
-# Défendre Axum comme framework backend
+# Defending Axum as a backend framework
 
-Notes pour l'oral et pour justifier le module bonus **"Use a framework for
-both the frontend and backend"** (Web, majeur, 2 pts, chap. VII). Vue
-couvre le frontend sans discussion possible (cité explicitement comme
-framework en III.3 du sujet). Axum, lui, n'apparaît pas dans la liste
-d'exemples du sujet (Express, Fastify, NestJS, Django, Flask, Rails) — ce
-document explique pourquoi il remplit quand même la définition donnée,
-avec des exemples précis tirés du code plutôt que des généralités.
+Notes for the oral defense and to justify the bonus module **"Use a
+framework for both the frontend and backend"** (Web, major, 2 pts, chap.
+VII). Vue covers the frontend without any possible debate (explicitly
+cited as a framework in III.3 of the subject). Axum, on the other hand,
+doesn't appear in the subject's list of examples (Express, Fastify,
+NestJS, Django, Flask, Rails) — this document explains why it still
+meets the given definition, with precise examples drawn from the code
+rather than generalities.
 
-## Le critère exact du sujet (III.3)
+## The subject's exact criterion (III.3)
 
 > *A framework must have the following features: a structured
 > architecture, with conventions for organizing code; built-in
 > functionalities for common tasks (e.g. routing, database access,
 > session management...); a complete ecosystem of tools and libraries.*
 
-Trois critères, pas une liste fermée de noms — le sujet dit "such as"
-devant Express/Django/Rails, donc ce sont des exemples, pas une liste
-exhaustive. Axum est pris sur ces trois critères, un par un.
+Three criteria, not a closed list of names — the subject says "such as"
+before Express/Django/Rails, so those are examples, not an exhaustive
+list. Axum is checked against these three criteria, one by one.
 
-## 1. Architecture structurée, avec des conventions
+## 1. Structured architecture, with conventions
 
-Axum impose une forme de code précise, pas juste une bibliothèque de
-fonctions qu'on appelle à sa convenance :
+Axum enforces a precise code shape, not just a library of functions
+called however you like:
 
-- **Un handler est une fonction `async`, ses paramètres sont des
-  extracteurs, son retour implémente `IntoResponse`.** On ne décide pas
-  cette forme, Axum l'exige — un handler qui ne s'y conforme pas ne
-  compile pas.
-- **Le routeur assemble des sous-routeurs par `.nest()`**, pas par un
-  système de dispatch ad hoc. Exemple réel (`src/routes/mod.rs:9-15`) :
-  chaque module (`auth`, `users`, `friends`, `media`, `rooms`, `ws`)
-  expose son propre `Router`, assemblé par l'application au démarrage.
-  C'est la convention qui a permis à ce projet de garder 8 modules
-  backend séparés, chacun testable et lisible seul.
-- **L'inversion de contrôle est le point qui distingue vraiment un
-  framework d'une bibliothèque** (voir le manuel en ligne, section
-  « Framework et bibliothèque ») : une bibliothèque, c'est du code que
-  *le mien* appelle ; un framework, c'est une structure qui appelle *le
-  mien* au bon moment. Avec Axum, c'est le routeur qui décide quand et
-  avec quels arguments appeler chaque handler — jamais l'inverse.
+- **A handler is an `async` function, its parameters are extractors, its
+  return type implements `IntoResponse`.** You don't choose this shape,
+  Axum requires it — a handler that doesn't conform doesn't compile.
+- **The router assembles sub-routers via `.nest()`**, not through an ad
+  hoc dispatch system. Real example (`src/routes/mod.rs:9-15`): each
+  module (`auth`, `users`, `friends`, `media`, `rooms`, `ws`) exposes its
+  own `Router`, assembled by the application at startup. This convention
+  is what let this project keep 8 separate backend modules, each
+  testable and readable on its own.
+- **Inversion of control is the point that really distinguishes a
+  framework from a library** (see the online manual, "Framework vs.
+  library" section): a library is code that *mine* calls; a framework is
+  a structure that calls *mine* at the right time. With Axum, it's the
+  router that decides when and with what arguments to call each handler
+  — never the other way around.
 
-## 2. Fonctionnalités intégrées pour les tâches courantes
+## 2. Built-in functionalities for common tasks
 
-Le sujet cite explicitement *routage*, *accès aux données*, *gestion de
-session* comme exemples de ce qu'un framework doit fournir de base.
+The subject explicitly cites *routing*, *database access*, *session
+management* as examples of what a framework must provide out of the box.
 
-| Tâche courante | Ce qu'Axum fournit | Exemple dans le code |
+| Common task | What Axum provides | Example in the code |
 |---|---|---|
-| Routage | `Router`, `.route()`, `.nest()`, extraction de paramètres de chemin (`Path<T>`) | `src/routes/mod.rs` |
-| État partagé / session | `State<T>` (pool PostgreSQL partagé), extracteur **personnalisé** `AuthUser` qui vérifie le token sur toute route privée | `src/auth/extractor.rs` (`impl FromRequestParts<PgPool> for AuthUser`) |
-| Accès aux données | Extracteurs de corps/requête (`Json<T>`, `Query<T>`), composés avec sqlx pour le reste | tous les handlers |
-| WebSocket | `WebSocketUpgrade`, gestion native de l'upgrade de connexion | `src/ws/handler.rs:26-36` |
-| Fichiers statiques | `ServeDir` (tower-http), branché en une ligne | `src/server/mod.rs` |
+| Routing | `Router`, `.route()`, `.nest()`, path parameter extraction (`Path<T>`) | `src/routes/mod.rs` |
+| Shared state / session | `State<T>` (shared PostgreSQL pool), **custom** `AuthUser` extractor that checks the token on every private route | `src/auth/extractor.rs` (`impl FromRequestParts<PgPool> for AuthUser`) |
+| Data access | Body/request extractors (`Json<T>`, `Query<T>`), composed with sqlx for the rest | every handler |
+| WebSocket | `WebSocketUpgrade`, native handling of the connection upgrade | `src/ws/handler.rs:26-36` |
+| Static files | `ServeDir` (tower-http), wired in one line | `src/server/mod.rs` |
 
-Le point le plus parlant est l'**extracteur personnalisé** `AuthUser`
-(`src/auth/extractor.rs`) : écrire `auth: AuthUser` en paramètre d'un
-handler suffit à le rendre privé, sans réécrire la vérification à chaque
-fois. C'est exactement le genre de "fonctionnalité intégrée pour une
-tâche courante" que le critère demande — sauf qu'Axum permet de
-l'étendre proprement au lieu de l'imposer tout fait, ce qui est cohérent
-avec un framework bas niveau plutôt que haut niveau (voir section 4).
+The most telling point is the **custom extractor** `AuthUser`
+(`src/auth/extractor.rs`): writing `auth: AuthUser` as a handler
+parameter is enough to make it private, without rewriting the check
+every time. This is exactly the kind of "built-in functionality for a
+common task" the criterion asks for — except Axum lets you extend it
+cleanly instead of imposing a ready-made one, which is consistent with a
+low-level rather than high-level framework (see section 4).
 
-## 3. Écosystème complet d'outils et de bibliothèques
+## 3. Complete ecosystem of tools and libraries
 
-Axum n'est pas isolé : il est conçu autour de **Tower** (middleware,
-appelés *layers*) et s'intègre nativement avec Tokio (runtime async) et
-Serde (sérialisation). Dans ce projet :
+Axum isn't isolated: it's designed around **Tower** (middleware, called
+*layers*) and integrates natively with Tokio (async runtime) and Serde
+(serialization). In this project:
 
 ```rust
 // src/server/mod.rs
@@ -79,36 +79,36 @@ let app = routes::router(pool.clone(), rooms, frontend_origins)
     .with_state(pool);
 ```
 
-Chaque `.layer()` est un middleware Tower qui s'empile sur toutes les
-routes sans toucher aux handlers (CORS, état partagé additionnel). C'est
-le même mécanisme qui permettrait d'ajouter demain de la compression,
-des métriques ou un rate-limiter générique — pas une bibliothèque isolée,
-un écosystème qui compose.
+Each `.layer()` is a Tower middleware stacked on top of every route
+without touching the handlers (CORS, additional shared state). It's the
+same mechanism that would let you add compression, metrics, or a generic
+rate limiter tomorrow — not an isolated library, an ecosystem that
+composes.
 
-## 4. Pourquoi Axum n'est pas dans la liste du sujet (et pourquoi ça n'exclut rien)
+## 4. Why Axum isn't in the subject's list (and why that excludes nothing)
 
-Argument anticipé côté correcteur : *"Axum est minimaliste, pas complet
-comme Rails ou Django."* Réponse :
+Anticipated reviewer pushback: *"Axum is minimalist, not complete like
+Rails or Django."* Response:
 
-- Le sujet ne demande pas d'être "aussi complet que Rails" — il liste
-  trois critères précis (ci-dessus), pas un niveau d'abstraction donné.
-  Axum les remplit tous les trois, documenté avec des exemples réels du
-  code, pas des affirmations vagues.
-- Express — cité en exemple dans le sujet — est lui-même minimaliste
-  (pas d'ORM, pas de gestion de session intégrée, tout vient de
-  middlewares tiers). Si Express compte comme framework malgré ça,
-  "minimaliste" n'est pas un critère d'exclusion.
-- La différence entre Axum et Rust historiquement : avant des crates
-  comme Axum/Actix, écrire un serveur HTTP en Rust voulait dire gérer
-  soi-même le parsing TCP/HTTP bas niveau. Axum apporte exactement ce
-  que le sujet attend d'un framework par rapport à "écrire sans
-  framework" : routage déclaratif, extracteurs, middleware composable.
+- The subject doesn't ask to be "as complete as Rails" — it lists three
+  precise criteria (above), not a given level of abstraction. Axum meets
+  all three, documented with real examples from the code, not vague
+  claims.
+- Express — cited as an example in the subject — is itself minimalist
+  (no ORM, no built-in session management, everything comes from
+  third-party middleware). If Express counts as a framework despite
+  that, "minimalist" isn't a disqualifying criterion.
+- The historical difference for Axum and Rust: before crates like
+  Axum/Actix, writing an HTTP server in Rust meant handling low-level
+  TCP/HTTP parsing yourself. Axum brings exactly what the subject
+  expects from a framework compared to "writing without a framework":
+  declarative routing, extractors, composable middleware.
 
-## Ce qu'il faut pouvoir dire à l'oral, en une phrase
+## What to be able to say at the oral, in one sentence
 
-*"Axum remplit les trois critères du sujet — architecture avec
-conventions, fonctionnalités intégrées pour le routage/l'état/les
-sessions, écosystème Tower/Tokio complet — même s'il n'est pas dans la
-liste d'exemples, qui n'est pas fermée. L'extracteur `AuthUser` est
-l'exemple le plus concret : il montre l'inversion de contrôle qui
-distingue un framework d'une bibliothèque."*
+*"Axum meets the subject's three criteria — architecture with
+conventions, built-in functionality for routing/state/sessions, a full
+Tower/Tokio ecosystem — even though it's not in the list of examples,
+which isn't closed. The `AuthUser` extractor is the most concrete
+example: it shows the inversion of control that distinguishes a
+framework from a library."*

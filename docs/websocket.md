@@ -1,237 +1,240 @@
-# Contrat temps réel SyncWatch (WebSocket)
+# SyncWatch real-time contract (WebSocket)
 
-> **Statut : implémenté.** Ce document a servi de contrat avant d'écrire le
-> module `ws` (phase 3) ; le code le suit maintenant au caractère près (voir
-> `src/rooms/`, `src/ws/`). Mise à jour 2026-10-29 : les salles s'identifient
-> par un `code` à 6 chiffres généré aléatoirement (plus par l'`id` interne
-> séquentiel, trop facile à deviner en l'incrémentant).
+> **Status: implemented.** This document served as the contract before writing
+> the `ws` module (phase 3); the code now follows it to the letter (see
+> `src/rooms/`, `src/ws/`). Updated 2026-10-29: rooms are identified by a
+> randomly generated 6-digit `code` (rather than the sequential internal
+> `id`, too easy to guess by incrementing).
 
-## 1. Vue d'ensemble
+## 1. Overview
 
-Une **salle** (room) regroupe des utilisateurs qui regardent la même vidéo.
-Le serveur est la seule source de vérité sur l'état de lecture : un client ne
-dit jamais aux autres quoi faire, il **demande** au serveur, qui valide puis
-diffuse à tous.
+A **room** groups users watching the same video. The server is the sole
+source of truth for playback state: a client never tells the others what
+to do, it **asks** the server, which validates and then broadcasts to
+everyone.
 
 ```
-Client A ── playback.pause ──► Serveur ── playback.state ──► A, B, C
+Client A ── playback.pause ──► Server ── playback.state ──► A, B, C
 ```
 
-Les tables `rooms` et `messages` existent depuis la migration 0001 ; la
-colonne `code` (migration 0004) a été ajoutée ensuite.
+The `rooms` and `messages` tables have existed since migration 0001; the
+`code` column (migration 0004) was added afterward.
 
-## 2. Routes REST à ajouter
+## 2. REST routes to add
 
-La création et la consultation d'une salle restent en REST : ce sont des
-actions ponctuelles, pas du temps réel.
+Creating and reading a room stay in REST: these are one-off actions, not
+real-time.
 
-| Méthode | Chemin | Rôle | Réponse |
+| Method | Path | Role | Response |
 |---|---|---|---|
-| `POST` | `/rooms` | Créer une salle. Corps : `{"name"}` | `201` `Room` |
-| `GET` | `/rooms/{code}` | Lire une salle | `200` `Room` · `404` |
-| `GET` | `/rooms/{code}/messages?before={id}&limit=50` | Historique du chat, du plus récent au plus ancien | `200` `[ChatMessage]` |
+| `POST` | `/rooms` | Create a room. Body: `{"name"}` | `201` `Room` |
+| `GET` | `/rooms/{code}` | Read a room | `200` `Room` · `404` |
+| `GET` | `/rooms/{code}/messages?before={id}&limit=50` | Chat history, newest to oldest | `200` `[ChatMessage]` |
 
-Pas de route pour supprimer une salle : elle se supprime automatiquement
-dès que le dernier membre quitte (voir section 9, point 3) — rien d'autre
-dans le process n'en a jamais eu besoin.
+No route to delete a room: it deletes itself automatically as soon as the
+last member leaves (see section 9, point 3) — nothing else in the process
+ever needed one.
 
-`{code}` est le code à 6 chiffres renvoyé à la création, pas un id interne —
-c'est la seule façon de désigner une salle depuis l'extérieur du backend.
+`{code}` is the 6-digit code returned on creation, not an internal id —
+it's the only way to refer to a room from outside the backend.
 
 ```json
 // Room
-{ "code": "335551", "name": "Soirée Chaplin", "owner_id": 3, "created_at": "2026-10-10T20:00:00Z" }
+{ "code": "335551", "name": "Chaplin Night", "owner_id": 3, "created_at": "2026-10-10T20:00:00Z" }
 ```
 
-Toutes privées (`Authorization: Bearer`).
+All private (`Authorization: Bearer`).
 
-## 3. Connexion
+## 3. Connection
 
 ```
 GET /ws        (Upgrade: websocket)
 ```
 
-### Authentification par premier message
+### Authentication via the first message
 
-Un navigateur ne peut pas ajouter d'en-tête `Authorization` à une connexion
-WebSocket. Deux options existent : mettre le token dans l'URL
-(`/ws?token=…`), ou l'envoyer dans le premier message. **On retient le
-premier message**, car une URL finit dans les logs du serveur, des proxys et
-l'historique du navigateur, et un token n'a rien à y faire.
+A browser can't add an `Authorization` header to a WebSocket connection.
+Two options exist: put the token in the URL (`/ws?token=…`), or send it in
+the first message. **We keep the first-message approach**, because a URL
+ends up in server logs, proxies, and browser history, and a token has no
+business being there.
 
-1. Le client ouvre la connexion.
-2. Il envoie `auth` dans les **5 secondes**.
-3. Le serveur répond `auth.ok`, ou ferme avec le code `4401`.
+1. The client opens the connection.
+2. It sends `auth` within **5 seconds**.
+3. The server replies with `auth.ok`, or closes with code `4401`.
 
-Tant que `auth.ok` n'a pas été reçu, tout autre message ferme la connexion.
+Until `auth.ok` has been received, any other message closes the connection.
 
-Le serveur doit aussi vérifier l'en-tête `Origin` de la requête d'ouverture
-et refuser les origines inconnues : les WebSockets ne sont pas soumis au CORS.
+The server must also check the `Origin` header of the opening request and
+reject unknown origins: WebSockets aren't subject to CORS.
 
-## 4. Format des messages
+## 4. Message format
 
-Trames **texte**, JSON, un objet par trame. Le champ `type` identifie le
-message ; les autres champs dépendent du type.
+**Text** frames, JSON, one object per frame. The `type` field identifies
+the message; the other fields depend on the type.
 
 ```json
-{ "type": "chat.send", "content": "Salut !" }
+{ "type": "chat.send", "content": "Hi!" }
 ```
 
-- Noms en `domaine.action`, en minuscules.
-- Dates en ISO 8601 UTC. Positions de lecture en **secondes**, nombre décimal.
-- Horloge serveur (`server_time`) en **millisecondes** depuis l'epoch Unix.
-- Un champ inconnu est ignoré ; un `type` inconnu provoque un message `error`.
-- Taille maximale d'une trame : **4 Ko**. Au-delà, fermeture `4400`.
+- Names in `domain.action`, lowercase.
+- Dates in ISO 8601 UTC. Playback positions in **seconds**, decimal number.
+- Server clock (`server_time`) in **milliseconds** since the Unix epoch.
+- An unknown field is ignored; an unknown `type` triggers an `error`
+  message.
+- Maximum frame size: **4 KB**. Beyond that, closed with `4400`.
 
-## 5. Messages client → serveur
+## 5. Client → server messages
 
-| `type` | Champs | Effet |
+| `type` | Fields | Effect |
 |---|---|---|
-| `auth` | `token` | Authentifie la connexion. |
-| `room.join` | `code` | Rejoint une salle. Quitte la précédente : une connexion = une salle. |
-| `room.leave` | — | Quitte la salle courante. |
-| `chat.send` | `content` (1 à 500 caractères) | Envoie un message dans la salle. |
-| `playback.set_media` | `provider`, `id` | Change la vidéo de la salle. Remet la position à 0, en pause. |
-| `playback.play` | `position` | Lance la lecture depuis cette position. |
-| `playback.pause` | `position` | Met en pause à cette position. |
-| `playback.seek` | `position` | Saute à cette position sans changer lecture/pause. |
-| `ping` | `t` (horloge du client, ms) | Mesure de latence et de décalage d'horloge. |
+| `auth` | `token` | Authenticates the connection. |
+| `room.join` | `code` | Joins a room. Leaves the previous one: one connection = one room. |
+| `room.leave` | — | Leaves the current room. |
+| `chat.send` | `content` (1 to 500 characters) | Sends a message in the room. |
+| `playback.set_media` | `provider`, `id` | Changes the room's video. Resets position to 0, paused. |
+| `playback.play` | `position` | Starts playback from this position. |
+| `playback.pause` | `position` | Pauses at this position. |
+| `playback.seek` | `position` | Jumps to this position without changing play/pause state. |
+| `ping` | `t` (client clock, ms) | Measures latency and clock offset. |
 
-`provider` et `id` suivent exactement les règles de `GET /media/{provider}/{id}`.
-Le serveur les valide de la même façon, et n'accepte jamais d'URL.
+`provider` and `id` follow exactly the same rules as
+`GET /media/{provider}/{id}`. The server validates them the same way, and
+never accepts a URL.
 
-## 6. Messages serveur → client
+## 6. Server → client messages
 
-| `type` | Champs | Quand |
+| `type` | Fields | When |
 |---|---|---|
-| `auth.ok` | `user` (`{id, username, avatar_url}`) | Après un `auth` valide. |
-| `room.state` | `room`, `members`, `media`, `playback` | Juste après `room.join` : l'état complet. |
-| `room.member_joined` | `user` | Quelqu'un entre dans la salle. |
-| `room.member_left` | `user_id`, `new_owner_id` | Quelqu'un sort ou se déconnecte. `new_owner_id` est présent seulement si qui part était propriétaire et que la salle continue (transfert au membre présent depuis le plus longtemps). |
-| `chat.message` | `id`, `sender`, `content`, `created_at` | Nouveau message, y compris pour son auteur. |
-| `playback.state` | `media`, `playing`, `position`, `server_time`, `by` | À chaque changement de lecture, à tous. |
-| `pong` | `t`, `server_time` | Réponse à `ping`. |
-| `error` | `code`, `message` | Une demande a été refusée. La connexion reste ouverte. |
+| `auth.ok` | `user` (`{id, username, avatar_url}`) | After a valid `auth`. |
+| `room.state` | `room`, `members`, `media`, `playback` | Right after `room.join`: the full state. |
+| `room.member_joined` | `user` | Someone enters the room. |
+| `room.member_left` | `user_id`, `new_owner_id` | Someone leaves or disconnects. `new_owner_id` is present only if the one leaving was the owner and the room continues (transferred to the member present the longest). |
+| `chat.message` | `id`, `sender`, `content`, `created_at` | New message, including to its own author. |
+| `playback.state` | `media`, `playing`, `position`, `server_time`, `by` | On every playback change, to everyone. |
+| `pong` | `t`, `server_time` | Reply to `ping`. |
+| `error` | `code`, `message` | A request was rejected. The connection stays open. |
 
 ```json
 // room.state
 {
   "type": "room.state",
-  "room": { "code": "335551", "name": "Soirée Chaplin", "owner_id": 3 },
+  "room": { "code": "335551", "name": "Chaplin Night", "owner_id": 3 },
   "members": [{ "id": 3, "username": "alice", "avatar_url": null }],
   "media": { "provider": "archive", "id": "notld_201610" },
   "playback": { "playing": true, "position": 754.2, "server_time": 1791590000000 }
 }
 ```
 
-`media` vaut `null` tant qu'aucune vidéo n'a été choisie.
+`media` is `null` as long as no video has been chosen.
 
-### Codes d'erreur (`error.code`)
+### Error codes (`error.code`)
 
-| Code | Signification |
+| Code | Meaning |
 |---|---|
-| `bad_message` | JSON invalide, `type` inconnu ou champ manquant. |
-| `not_in_room` | Action de salle envoyée sans avoir rejoint de salle. |
-| `room_not_found` | La salle n'existe pas. |
-| `forbidden` | Action réservée au propriétaire de la salle. |
-| `invalid_media` | `provider` ou `id` au mauvais format. |
-| `rate_limited` | Trop de messages. |
+| `bad_message` | Invalid JSON, unknown `type`, or missing field. |
+| `not_in_room` | A room action sent without having joined a room. |
+| `room_not_found` | The room doesn't exist. |
+| `forbidden` | Action reserved for the room owner. |
+| `invalid_media` | `provider` or `id` in the wrong format. |
+| `rate_limited` | Too many messages. |
 
-## 7. Synchronisation de la lecture
+## 7. Playback synchronization
 
-### Principe
+### Principle
 
-Le serveur ne diffuse pas « où en est la vidéo » en continu. Il mémorise un
-**point de référence** et chaque client calcule la position attendue :
+The server doesn't continuously broadcast "where the video is at." It
+stores a **reference point**, and each client computes the expected
+position:
 
 ```
-si playing : position_attendue = position + (maintenant_serveur - server_time) / 1000
-sinon      : position_attendue = position
+if playing: expected_position = position + (server_now - server_time) / 1000
+else:       expected_position = position
 ```
 
-Un seul message suffit donc pour qu'un nouvel arrivant se cale, même en cours
-de lecture.
+A single message is therefore enough for a new arrival to sync up, even
+mid-playback.
 
-### Décalage d'horloge
+### Clock offset
 
-`maintenant_serveur` n'est pas l'horloge du client. Le client l'estime avec
-`ping` / `pong` :
+`server_now` isn't the client's clock. The client estimates it with
+`ping` / `pong`:
 
 ```
-aller_retour = reception - t
-decalage     = server_time + aller_retour / 2 - reception
-maintenant_serveur = Date.now() + decalage
+round_trip = reception - t
+offset     = server_time + round_trip / 2 - reception
+server_now = Date.now() + offset
 ```
 
-Faire 5 mesures à la connexion et garder celle dont l'aller-retour est le plus
-court (la moins perturbée), puis une mesure toutes les 30 secondes.
+Take 5 measurements on connection and keep the one with the shortest
+round trip (the least disturbed), then one measurement every 30 seconds.
 
-### Correction de la dérive
+### Drift correction
 
-Toutes les 2 secondes, le client compare `video.currentTime` à la position
-attendue :
+Every 2 seconds, the client compares `video.currentTime` to the expected
+position:
 
-| Écart | Action |
+| Gap | Action |
 |---|---|
-| moins de 0,25 s | Rien. |
-| de 0,25 s à 2 s | Ajuster `video.playbackRate` (0,95 ou 1,05) jusqu'à rattrapage : imperceptible. |
-| plus de 2 s | `video.currentTime = position_attendue` (saut visible). |
+| less than 0.25 s | Nothing. |
+| 0.25 s to 2 s | Adjust `video.playbackRate` (0.95 or 1.05) until caught up: imperceptible. |
+| more than 2 s | `video.currentTime = expected_position` (visible jump). |
 
-C'est le même principe que le moteur WASM de Movix (statuts *calibrating →
-adjusting → perfect*), en JavaScript simple. Un module WASM pourra le
-remplacer plus tard sans changer ce contrat.
+Same principle as Movix's WASM engine (*calibrating → adjusting →
+perfect* statuses), in plain JavaScript. A WASM module could replace it
+later without changing this contract.
 
-### Éviter les boucles
+### Avoiding loops
 
-Quand le client applique un `playback.state`, la balise `<video>` émet ses
-propres événements `play`, `pause`, `seeked`. Il ne faut **pas** les renvoyer
-au serveur, sinon chaque client relance tous les autres à l'infini. Le client
-garde un drapeau « changement venant du serveur » et ignore les événements
-qu'il a lui-même provoqués.
+When the client applies a `playback.state`, the `<video>` tag emits its
+own `play`, `pause`, `seeked` events. These must **not** be sent back to
+the server, or every client would re-trigger all the others forever. The
+client keeps a "change came from the server" flag and ignores events it
+triggered itself.
 
-## 8. Limites et fermetures
+## 8. Limits and closures
 
-| Règle | Valeur |
+| Rule | Value |
 |---|---|
-| Délai pour s'authentifier | 5 s |
-| Taille d'une trame | 4 Ko |
-| Messages de chat | 5 par 5 secondes et par utilisateur |
-| Commandes de lecture | 10 par 5 secondes et par utilisateur |
-| Inactivité (ni message ni `ping`) | fermeture après 60 s |
+| Time to authenticate | 5 s |
+| Frame size | 4 KB |
+| Chat messages | 5 per 5 seconds per user |
+| Playback commands | 10 per 5 seconds per user |
+| Inactivity (no message, no `ping`) | closed after 60 s |
 
-Dépasser une limite renvoie `error` avec `rate_limited`. Insister ferme la
-connexion.
+Exceeding a limit returns `error` with `rate_limited`. Persisting closes
+the connection.
 
-| Code de fermeture | Raison |
+| Close code | Reason |
 |---|---|
-| `1000` | Fermeture normale. |
-| `4400` | Message illisible ou trame trop grande. |
-| `4401` | Token absent, invalide ou expiré, ou délai d'authentification dépassé. |
-| `4408` | Inactivité. |
-| `4429` | Limites dépassées de façon répétée. |
+| `1000` | Normal closure. |
+| `4400` | Unreadable message or frame too large. |
+| `4401` | Missing, invalid, or expired token, or authentication deadline exceeded. |
+| `4408` | Inactivity. |
+| `4429` | Limits exceeded repeatedly. |
 
-Les codes 4000 à 4999 sont réservés aux applications par la norme WebSocket.
+Codes 4000 to 4999 are reserved for applications by the WebSocket
+standard.
 
-Après une fermeture autre que `4401`, le client se reconnecte avec un délai
-croissant (1 s, 2 s, 4 s… plafonné à 30 s), renvoie `auth` puis `room.join`.
+After a closure other than `4401`, the client reconnects with a growing
+delay (1 s, 2 s, 4 s… capped at 30 s), resending `auth` then `room.join`.
 
-## 9. Décisions prises (2026-10-19)
+## 9. Decisions made (2026-10-19)
 
-1. **Qui contrôle la lecture ?** Tous les membres peuvent lire, mettre en
-   pause et avancer. Seul le propriétaire peut changer de vidéo
-   (`playback.set_media` refusé avec `forbidden` si l'appelant n'est pas
-   `owner_id`).
-2. **Qui peut rejoindre une salle ?** Toute personne connectée qui a le
-   code à 6 chiffres. Pas de vérification d'amitié.
-3. **Que devient une salle vide ?** **Suppression automatique** dès que le
-   dernier membre quitte ou se déconnecte (différent de la proposition
-   initiale) : plus personne à qui diffuser quoi que ce soit, le serveur
-   supprime directement la ligne `rooms` (cascade sur `messages` via la
-   contrainte existante). Si le propriétaire part mais que la salle
-   continue, elle n'est pas fermée : la propriété passe au membre présent
-   depuis le plus longtemps (`room.member_left.new_owner_id`). Une salle
-   qui n'a jamais eu de membre connecté (créée puis jamais rejointe) n'est
-   pas concernée tant que personne n'a déclenché `room.join` puis quitté.
-4. **Le chat est-il conservé ?** Oui, dans la table `messages`. Texte brut
-   uniquement, jamais interprété comme HTML (`v-text`/interpolation côté
-   Vue, jamais `v-html`).
+1. **Who controls playback?** Any member can play, pause, and seek. Only
+   the owner can change the video (`playback.set_media` rejected with
+   `forbidden` if the caller isn't `owner_id`).
+2. **Who can join a room?** Anyone connected who has the 6-digit code. No
+   friendship check.
+3. **What happens to an empty room?** **Automatic deletion** as soon as
+   the last member leaves or disconnects (different from the initial
+   proposal): nobody left to broadcast anything to, the server directly
+   deletes the `rooms` row (cascading to `messages` via the existing
+   constraint). If the owner leaves but the room continues, it isn't
+   closed: ownership passes to the member present the longest
+   (`room.member_left.new_owner_id`). A room that never had a connected
+   member (created then never joined) isn't affected by this as long as
+   nobody triggered `room.join` then left.
+4. **Is chat kept?** Yes, in the `messages` table. Plain text only, never
+   interpreted as HTML (`v-text`/interpolation on the Vue side, never
+   `v-html`).

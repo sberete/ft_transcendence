@@ -10,16 +10,16 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# .template : l'image nginx officielle le passe par envsubst au demarrage du
-# conteneur (seules les variables d'environnement reelles sont substituees,
-# les variables nginx comme $host restent intactes) pour injecter
-# BACKEND_UPSTREAM selon le mode (voir docker-compose.yml / Makefile).
+# .template: the official nginx image runs it through envsubst at container
+# startup (only real environment variables get substituted, nginx variables
+# like $host are left untouched) to inject BACKEND_UPSTREAM depending on the
+# mode (see docker-compose.yml / Makefile).
 COPY docker/frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
 
-# Certificat auto-signe pour servir le site en HTTPS en dev local (le sujet
-# exige HTTPS sur toute connexion navigateur -> backend). Regenere a chaque
-# build : pas de fichier a committer, le navigateur redemande juste une
-# confirmation apres un rebuild.
+# Self-signed certificate to serve the site over HTTPS in local dev (the
+# subject requires HTTPS on every browser -> backend connection). Regenerated
+# on every build: nothing to commit, the browser just re-confirms the
+# warning after a rebuild.
 RUN apk add --no-cache openssl && \
     mkdir -p /etc/nginx/certs && \
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \

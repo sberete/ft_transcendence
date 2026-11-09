@@ -1,10 +1,10 @@
-# ${BACKEND_UPSTREAM} est substitue au demarrage du conteneur par l'image
-# nginx officielle (envsubst sur les fichiers /etc/nginx/templates/*.template),
-# uniquement pour les noms qui existent reellement comme variables
-# d'environnement : les variables nginx ($host, $uri, $http_upgrade...)
-# n'en font pas partie et restent donc intouchees. Ca permet de pointer
-# nginx soit vers le conteneur backend (make up), soit vers un `cargo run`
-# natif via host.docker.internal (make dev), sans dupliquer ce fichier.
+# ${BACKEND_UPSTREAM} is substituted at container startup by the official
+# nginx image (envsubst over /etc/nginx/templates/*.template files), only
+# for names that actually exist as environment variables: nginx's own
+# variables ($host, $uri, $http_upgrade...) aren't among them and stay
+# untouched. This lets nginx point either at the backend container
+# (make up) or at a native `cargo run` via host.docker.internal (make dev),
+# without duplicating this file.
 server {
     listen 443 ssl;
     http2 on;
@@ -14,31 +14,32 @@ server {
     ssl_certificate /etc/nginx/certs/syncwatch.crt;
     ssl_certificate_key /etc/nginx/certs/syncwatch.key;
 
-    # DNS Docker interne, avec une duree de vie courte : par defaut, nginx
-    # resout l'hote une seule fois au demarrage et garde l'IP en cache. Si le
-    # conteneur backend redemarre (il en change), nginx reste bloque sur
-    # l'ancienne adresse jusqu'a son propre redemarrage. Passer par une
-    # variable force une resolution a chaque requete.
+    # Internal Docker DNS, with a short TTL: by default, nginx resolves the
+    # host once at startup and caches the IP. If the backend container
+    # restarts (its IP changes), nginx stays stuck on the old address until
+    # it restarts itself. Going through a variable forces a fresh
+    # resolution on every request.
     resolver 127.0.0.11 valid=10s;
     set $backend_upstream ${BACKEND_UPSTREAM};
 
-    # index.html ne doit jamais etre mis en cache : c'est lui qui reference
-    # le nom (hashe) du bundle JS courant. Sans ca, un navigateur peut servir
-    # une vieille page qui pointe vers un bundle qui n'existe plus/est perime.
+    # index.html must never be cached: it's the one referencing the
+    # current JS bundle's (hashed) name. Without this, a browser could
+    # serve a stale page pointing at a bundle that no longer exists/is
+    # outdated.
     location = /index.html {
         add_header Cache-Control "no-cache";
     }
 
-    # Les fichiers dans /assets ont un hash dans leur nom (ex: index-Cym4yT65.js) :
-    # un nouveau build genere un nouveau nom, donc on peut les cacher longtemps
-    # sans jamais risquer de servir du contenu perime.
+    # Files under /assets have a hash in their name (e.g. index-Cym4yT65.js):
+    # a new build generates a new name, so these can be cached for a long
+    # time without ever risking serving stale content.
     location /assets/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
-    # Avatars uploades : servis directement par le backend, pas sous /api car
-    # ce sont des <img src> bruts, pas des appels fetch(). Aucune route Vue
-    # Router ne s'appelle /uploads, donc pas de collision possible.
+    # Uploaded avatars: served directly by the backend, not under /api
+    # because these are raw <img src> requests, not fetch() calls. No Vue
+    # Router route is named /uploads, so there's no possible collision.
     location /uploads/ {
         proxy_pass $backend_upstream;
         proxy_set_header Host $host;
@@ -46,10 +47,10 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # API REST : prefixe /api pour eviter toute collision avec les pages
-    # Vue Router (ex: /friends existe des deux cotes - page ET endpoint).
-    # proxy_pass vers une variable (DNS dynamique) desactive la reecriture
-    # automatique d'URI de nginx : on retire le prefixe /api a la main.
+    # REST API: /api prefix to avoid any collision with Vue Router pages
+    # (e.g. /friends exists on both sides - page AND endpoint). Using
+    # proxy_pass with a variable (dynamic DNS) disables nginx's automatic
+    # URI rewriting, so we strip the /api prefix by hand.
     location /api/ {
         rewrite ^/api/(.*)$ /$1 break;
         proxy_pass $backend_upstream;
@@ -59,8 +60,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # WebSocket (chat + sync de lecture) : upgrade de connexion + timeout
-    # etendu (une salle peut rester ouverte longtemps sans trafic).
+    # WebSocket (chat + playback sync): connection upgrade + extended
+    # timeout (a room can stay open for a long time without traffic).
     location /api/ws {
         rewrite ^/api/ws(.*)$ /ws$1 break;
         proxy_pass $backend_upstream;
@@ -72,9 +73,9 @@ server {
         proxy_read_timeout 3600s;
     }
 
-    # Si le backend est injoignable (redemarrage, crash, pas encore lance en
-    # dev natif), renvoyer une erreur rapide plutot que de laisser le
-    # navigateur attendre indefiniment.
+    # If the backend is unreachable (restarting, crashed, not started yet
+    # in native dev mode), return a quick error rather than leaving the
+    # browser waiting indefinitely.
     proxy_connect_timeout 5s;
 
     location / {
