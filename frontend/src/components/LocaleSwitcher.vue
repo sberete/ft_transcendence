@@ -1,11 +1,12 @@
 <script setup>
-// FR/EN toggle shown in the navbar, visible whether logged in or not.
+// FR/EN/ES toggle shown in the navbar, visible whether logged in or not.
 import { useI18n } from 'vue-i18n'
 import { setLocale } from '../i18n'
 
 const LOCALES = [
   { code: 'fr', label: 'FR' },
   { code: 'en', label: 'EN' },
+  { code: 'es', label: 'ES' },
 ]
 
 const { locale, t } = useI18n()

@@ -4,9 +4,10 @@
 import { createI18n } from 'vue-i18n'
 import fr from './locales/fr.json'
 import en from './locales/en.json'
+import es from './locales/es.json'
 
 const STORAGE_KEY = 'locale'
-const SUPPORTED = ['fr', 'en']
+const SUPPORTED = ['fr', 'en', 'es']
 
 // Locale to start with: the saved one if it's valid, otherwise French.
 function initialLocale() {
@@ -24,7 +25,7 @@ export const i18n = createI18n({
   legacy: false,
   locale: initialLocale(),
   fallbackLocale: 'fr',
-  messages: { fr, en },
+  messages: { fr, en, es },
 })
 
 // Keep the lang attribute in sync with the active locale from the start.
