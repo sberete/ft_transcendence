@@ -49,6 +49,11 @@ services:
       dockerfile: docker/frontend/Dockerfile
     restart: unless-stopped
     environment:
+      # Makes the official nginx image populate $NGINX_LOCAL_RESOLVERS from
+      # this container's own /etc/resolv.conf at startup, instead of a
+      # hardcoded DNS address - see the `resolver` directive in
+      # nginx.conf.template for why (Docker vs Podman).
+      NGINX_ENTRYPOINT_LOCAL_RESOLVERS: 1
       # Target that nginx reverse-proxies for /api and /uploads. Defaults
       # to the Docker service name; `make dev` points it at
       # host.docker.internal for a native backend (cargo run), see Makefile.

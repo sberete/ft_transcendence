@@ -14,12 +14,18 @@ server {
     ssl_certificate /etc/nginx/certs/syncwatch.crt;
     ssl_certificate_key /etc/nginx/certs/syncwatch.key;
 
-    # Internal Docker DNS, with a short TTL: by default, nginx resolves the
-    # host once at startup and caches the IP. If the backend container
-    # restarts (its IP changes), nginx stays stuck on the old address until
-    # it restarts itself. Going through a variable forces a fresh
-    # resolution on every request.
-    resolver 127.0.0.11 valid=10s;
+    # Internal DNS, with a short TTL: by default, nginx resolves the host
+    # once at startup and caches the IP. If the backend container restarts
+    # (its IP changes), nginx stays stuck on the old address until it
+    # restarts itself. Going through a variable forces a fresh resolution
+    # on every request. ${NGINX_LOCAL_RESOLVERS} comes from the official
+    # nginx image's own entrypoint script (opt in via
+    # NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1, see docker-compose.yml), which
+    # reads the container's /etc/resolv.conf - Docker's embedded DNS is
+    # always at 127.0.0.11, but Podman (used on some school machines) puts
+    # its own DNS at a different address, so a fixed IP here would only
+    # work under one of the two.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
     set $backend_upstream ${BACKEND_UPSTREAM};
 
     # index.html must never be cached: it's the one referencing the
