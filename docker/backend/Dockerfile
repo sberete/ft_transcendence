@@ -1,4 +1,4 @@
-FROM rust:1-slim-bookworm AS builder
+FROM docker.io/library/rust:1-slim-bookworm AS builder
 WORKDIR /app
 
 # Avoids OOM on small Docker VMs (parallel compilation = RAM spike)
@@ -15,7 +15,7 @@ COPY migrations ./migrations
 RUN touch src/main.rs
 RUN cargo build --release
 
-FROM debian:bookworm-slim
+FROM docker.io/library/debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

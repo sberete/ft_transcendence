@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM docker.io/library/node:22-alpine AS builder
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
@@ -7,7 +7,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM nginx:alpine
+FROM docker.io/library/nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # .template: the official nginx image runs it through envsubst at container
