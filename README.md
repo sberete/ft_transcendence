@@ -153,6 +153,11 @@ Work is organized as:
 - **Frontend**: [Vue 3](https://vuejs.org) (Composition API, `<script setup>`) + [Vue Router](https://router.vuejs.org) 4 +
   [Vite](https://vite.dev). [hls.js](https://github.com/video-dev/hls.js) for HLS playback in browsers that don't support
   it natively.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com) (via `@tailwindcss/vite`) alongside the existing
+  hand-written design system (CSS custom properties for color/spacing
+  tokens, scoped component styles) — utility classes for layout, and
+  arbitrary-value classes (`bg-[var(--bg-hover)]`) to stay on the same
+  design tokens rather than duplicating them in Tailwind's own theme.
 - **Real time**: native WebSockets on Axum/Tokio (no Socket.IO or similar
   library) — connection handling, rate limiting, and custom close codes
   implemented directly against [RFC 6455](https://www.rfc-editor.org/info/rfc6455).
