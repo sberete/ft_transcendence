@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* Design system SyncWatch : theme sombre facon plateforme de streaming.
    Toutes les couleurs passent par ces variables, les composants n'en codent aucune. */
 :root {
