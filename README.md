@@ -18,17 +18,22 @@ server never stores or proxies the video stream.
 
 Key features:
 - Account system (email/username + password, or Google/GitHub OAuth)
-- Friends (requests, accept/decline, online status)
-- A video catalogue aggregated live from legal sources, with search and
-  playback (MP4 and HLS)
-- Watch rooms with a real-time chat (WebSocket), persisted history, and
-  automatic cleanup when a room empties
+- Friends (requests, accept/decline, online status), with notifications
+  for friend activity and room events
+- A video catalogue aggregated live from legal sources, with search,
+  filtering/sorting/pagination, and playback (MP4 and HLS)
+- A hybrid (content + collaborative) recommendation system based on
+  watch history
+- Watch rooms with a real-time chat (WebSocket), synchronized playback
+  (play/pause/seek shared across a room, clock sync and drift
+  correction), and automatic cleanup when a room empties
+- French, English and Spanish, fully translated including both legal
+  pages
 - Privacy Policy and Terms of Service pages
 - The whole site served over HTTPS behind an nginx reverse proxy
 
-Synchronized playback (play/pause/seek shared across a room) is designed
-(see `docs/websocket.md`) but not implemented yet — see "Modules" below
-for the exact state of every claimed module.
+See "Modules" below for the exact, verified state of every claimed
+module.
 
 ## Instructions
 
@@ -180,6 +185,8 @@ erDiagram
   users ||--o{ rooms : "owns"
   rooms ||--o{ messages : "contains"
   users ||--o{ messages : "writes"
+  users ||--o{ notifications : "receives"
+  users ||--o{ watch_history : "watches"
   users {
     bigserial id PK
     varchar32 username UK
@@ -216,6 +223,23 @@ erDiagram
     bigint sender_id FK
     text content
   }
+  notifications {
+    bigserial id PK
+    bigint user_id FK
+    varchar32 kind
+    jsonb payload "denormalized at creation time"
+    timestamptz read_at
+    timestamptz created_at
+  }
+  watch_history {
+    bigint user_id PK_FK
+    varchar16 provider PK
+    varchar100 media_id PK
+    varchar255 title
+    int year
+    text thumbnail_url
+    timestamptz watched_at
+  }
 ```
 
 Notes:
@@ -226,6 +250,13 @@ Notes:
 - A `videos` table exists in the first migration but is unused: uploading
   personal videos was considered and then dropped in favor of relying
   entirely on the external catalogue (see "Modules").
+- `watch_history`'s primary key is `(user_id, provider, media_id)`, not a
+  row id: one row per (user, video) pair, re-watching just bumps
+  `watched_at` — it's the set the recommendation system reasons over, not
+  an event log.
+- `notifications.payload` is denormalized at creation time (e.g. the
+  other user's username/avatar at that moment) so the notification list
+  never needs a second query per row to render.
 
 ## Features List
 
@@ -236,12 +267,15 @@ Information").
 |---|---|
 | Account system | Sign up / log in with email or username + password (Argon2, salted), log out, DB-backed sessions |
 | OAuth login | Google and GitHub, popup-based flow, account linking on a verified email |
-| Profile | View and edit username, upload an avatar |
+| Profile | View and edit username, upload an avatar (with progress bar and delete) |
 | Friends | Send/accept/decline requests, friends list, online status |
-| Video catalogue | Search and browse videos aggregated from Internet Archive and PeerTube |
+| Notifications | Friend requests/accepts/removals, a friend starting a session, room ownership transfer — navbar bell, unread count, polling-based |
+| Video catalogue | Search and browse videos aggregated from Internet Archive and PeerTube, with filter by source, sort, and pagination |
+| Recommendations | Hybrid content (TF-IDF) + collaborative filtering based on watch history, shown on the home page |
 | Playback | MP4 and HLS playback in-browser (hls.js), no server-side transcoding |
-| Watch rooms | Create or join a room, WebSocket connection, live member list |
+| Watch rooms | Create or join a room, WebSocket connection, live member list, synchronized playback (play/pause/seek, clock sync, drift correction, ownership transfer) |
 | Chat | Real-time messages in a room, persisted history with pagination |
+| Multi-language | French (default), English, Spanish — switcher in the navbar, full coverage including legal pages |
 | Privacy Policy / Terms of Service | Accessible from the footer on every page |
 | HTTPS | Entire site served over TLS through an nginx reverse proxy |
 
@@ -263,13 +297,48 @@ this table is kept honest rather than aspirational.
 | Notification system | Web, Minor | 1 | **Done** — persistent notifications (friend requests/accepts/removals, a friend starting a session, room ownership transfer), surfaced via a navbar bell with an unread count, fetched by polling (the WebSocket connection is scoped to a room, not global to the app) |
 | Support for additional browsers | Accessibility, Minor | 1 | **Done** — replaces the ORM module (dropped, see "Technical Stack"). A latent crash on browsers without `BroadcastChannel` support was fixed in the OAuth popup flow. Systematic pass run on real Firefox and Safari (signup/login, OAuth popup, search/filters, avatar upload with progress bar, joining a room by code, chat, and playback sync including mid-session join) — see `docs/browser-testing.md` for the filled-in grid |
 | Advanced search | Web, Minor | 1 | **Done** — filter by source, sort by title/year/duration, and client-side pagination (12 results per page) on the search page |
-| Support for multiple languages | Accessibility, Minor | 1 | **Done** — French (default) and English, via vue-i18n; a switcher in the navbar, the choice persisted in `localStorage`, and the `lang` attribute kept in sync. Covers the whole app including both legal pages, not just a partial pass. Replaces 2FA (dropped as a module choice) |
+| Support for multiple languages | Accessibility, Minor | 1 | **Done** — French (default), English and Spanish (3 complete translations, meeting the subject's minimum), via vue-i18n; a switcher in the navbar, the choice persisted in `localStorage`, and the `lang` attribute kept in sync. Covers the whole app including both legal pages, not just a partial pass. Replaces 2FA (dropped as a module choice) |
 
 All 14 mandatory points are implemented and verified, including the
 manual Firefox/Safari pass for "Support for additional browsers" (see
-`docs/browser-testing.md`). No bonus module is claimed until the
-mandatory 14 points are solid, per the subject's rule that bonus is only
-evaluated once the required part is perfect.
+`docs/browser-testing.md`).
+
+## Bonus
+
+Per the subject (chap. VII), bonus is only evaluated once the mandatory
+14 points are solid — true as of this submission — and each extra module
+must be fully functional and justified here, in the README.
+
+| Module | Category | Points | Status |
+|---|---|---|---|
+| Use a framework for both the frontend and backend | Web, Major | 2 | **Done** |
+
+**Why this counts**: Vue is explicitly listed as a frontend framework by
+the subject (III.3), so that half isn't in question. Axum isn't in the
+subject's example list for the backend half (Express, Fastify, NestJS,
+Django, Flask, Rails) but meets the subject's own three-part definition
+of a framework — structured architecture with conventions, built-in
+functionality for common tasks, a complete ecosystem — not just a
+different name for the same examples:
+- **Structured architecture**: a handler must be `async`, take extractors
+  as parameters, and return a type implementing `IntoResponse` — this
+  isn't a convention you can ignore, non-conforming code doesn't compile.
+  Sub-routers are assembled via `.nest()` (`src/routes/mod.rs`), not an
+  ad hoc dispatch table — this is what let the backend stay split into 8
+  independent modules (`auth`, `users`, `friends`, `media`, `rooms`, `ws`,
+  `notifications`, `recommendations`), each testable on its own.
+- **Built-in functionality for common tasks** (the subject's own examples
+  — routing, database access, session management): `Router`/`.route()`
+  for routing, `State<T>` for the shared connection pool, a custom
+  `AuthUser` extractor (`src/auth/extractor.rs`) that turns any handler
+  parameter `auth: AuthUser` into an authenticated-only route without
+  repeating the check, `WebSocketUpgrade` for native WebSocket handling.
+- **Inversion of control**, the property that actually separates a
+  framework from a library per the subject's own definition: the Axum
+  router decides when and with what arguments each handler gets called —
+  the handler never calls Axum, Axum calls the handler.
+
+Full argument, with more code examples, in `docs/axum-as-framework.md`.
 
 ## Individual Contributions
 
@@ -288,10 +357,33 @@ Everything in this repository was built by **sberete**, working solo (see
   shared format.
 - **Real-time core**: the WebSocket protocol (`docs/websocket.md`), its
   implementation (`src/ws`, `src/rooms`), and the frontend chat/room UI
-  (`roomSocket.js` and related views).
+  (`roomSocket.js` and related views), including synchronized playback
+  (clock sync, drift correction, ownership transfer).
+- **Recommendation system**: the hybrid scoring pipeline (`src/recommendations`),
+  a hand-written TF-IDF + cosine similarity implementation
+  (`scoring.rs`, unit-tested), and the single instrumentation point
+  (`GET /media/{provider}/{id}`) feeding `watch_history` from both solo
+  and in-room playback.
+- **Notifications**: the persistent notification system (`src/notifications`),
+  polling-based delivery on the frontend (no global WebSocket in this
+  app), and the navbar bell UI.
+- **Internationalization**: the vue-i18n setup (`frontend/src/i18n.js`),
+  French/English/Spanish translation of the entire app including both
+  legal pages, and the locale switcher.
+- **Search**: filter by source, sort, and client-side pagination on top
+  of the existing catalogue aggregator.
+- **Styling**: the hand-written design system (CSS custom properties,
+  scoped component styles) plus Tailwind CSS, added specifically to meet
+  the subject's CSS-framework requirement (III.3) without rewriting what
+  already worked.
+- **Testing**: a formalized multi-user concurrency test suite
+  (`tests/test_concurrency.py` — concurrent signups, room joins,
+  ownership transfer, playback commands, rate-limit bursts), replacing
+  ad hoc one-off scripts.
 - **Infrastructure**: Docker Compose setup, the nginx reverse proxy and
   HTTPS termination, unifying the Docker and native-backend development
-  workflows behind one URL.
+  workflows behind one URL; later hardened for Podman compatibility (see
+  "Challenges faced").
 - **Compliance**: Privacy Policy and Terms of Service pages, this README.
 
 **Challenges faced and how they were resolved**:
@@ -309,3 +401,15 @@ Everything in this repository was built by **sberete**, working solo (see
   route and a backend endpoint) once the frontend and the API were merged
   behind a single HTTPS origin: resolved by prefixing every API call with
   `/api`.
+- *The project wouldn't come up on the school's machines*, which run
+  Podman instead of Docker: unqualified image names (`postgres:16-alpine`)
+  made Podman prompt interactively for a registry, which blocks a
+  detached `docker compose up -d` indefinitely — fixed by fully
+  qualifying every image with `docker.io/library/`. Separately, nginx's
+  `resolver` directive was hardcoded to Docker's embedded DNS address
+  (`127.0.0.11`); Podman's own DNS listens elsewhere, so every proxied
+  request (including both OAuth popups) hung until a timeout, then failed
+  with 502 — fixed by switching to the official nginx image's
+  `NGINX_ENTRYPOINT_LOCAL_RESOLVERS` mechanism, which reads the
+  container's actual `/etc/resolv.conf` instead of assuming a fixed
+  address, portable between Docker and Podman.
