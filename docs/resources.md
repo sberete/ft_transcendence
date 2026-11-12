@@ -100,6 +100,14 @@ than risking a dead link.
   Routes, navigation guards (`router.beforeEach`, used in
   `frontend/src/router/index.js` for `requiresAuth`/`guestOnly`).
 
+## Internationalization: vue-i18n
+
+- **Official guide (getting started)** — https://vue-i18n.intlify.dev/guide/essentials/started
+  Creating an i18n instance (`locale`, `fallbackLocale`, `messages`),
+  registering it as a plugin, and using `$t()` in templates — exactly the
+  setup in `frontend/src/i18n.js`. The project uses the Composition API
+  form (`useI18n()` in `<script setup>`), not the Options API.
+
 ## Video playback: hls.js
 
 - **Official repo** — https://github.com/video-dev/hls.js
@@ -117,6 +125,26 @@ than risking a dead link.
   Full OpenAPI spec. OAuth2 authentication is per-instance (not used
   here: the project only does public reads, no upload).
 
+## Recommendation system: TF-IDF, cosine similarity, collaborative filtering
+
+- **Wikipedia — tf–idf** — https://en.wikipedia.org/wiki/Tf%E2%80%93idf
+  Term frequency (how often a word appears in a title) weighted against
+  inverse document frequency (how rare that word is across all titles) —
+  the exact technique behind `TfIdfModel` in `src/recommendations/scoring.rs`,
+  implemented from scratch rather than through an ML crate.
+- **Wikipedia — Cosine similarity** — https://en.wikipedia.org/wiki/Cosine_similarity
+  How the two TF-IDF vectors of two titles get compared: the cosine of the
+  angle between them, independent of title length — used in
+  `TfIdfModel::similarity`.
+- **Wikipedia — Collaborative filtering** — https://en.wikipedia.org/wiki/Collaborative_filtering
+  The other half of the hybrid score: recommending what other users with
+  overlapping watch history saw, weighted by how much that history
+  overlaps with mine — see the `neighbors`/`neighbor_weight` logic in
+  `src/recommendations/handlers.rs`. The page's "cold start" and "data
+  sparsity" sections directly explain why the module falls back to a
+  global catalog, and why zero-signal candidates are dropped instead of
+  padded with a "most watched" default.
+
 ## Docker / Docker Compose
 
 - **Compose file reference** — https://docs.docker.com/reference/compose-file/
@@ -130,6 +158,14 @@ than risking a dead link.
 - **TechWorld with Nana YouTube channel** — https://www.youtube.com/@TechWorldwithNana
   A more complete course (images, containers, volumes, Compose) if the
   general concept of containerization isn't clear yet.
+
+## Testing: Python `websockets` (concurrency tests)
+
+- **Official documentation (asyncio client)** — https://websockets.readthedocs.io/en/stable/
+  Used in `tests/test_concurrency.py` to open several real WebSocket
+  connections at once (`websockets.connect`) and fire concurrent
+  `room.join`/`playback.*` messages against the live stack — the same
+  asyncio-based client API documented here.
 
 ---
 
