@@ -215,10 +215,12 @@ async function handleLogout() {
 
 .account {
   position: relative;
+  flex-shrink: 0;
 }
 
 .avatar-btn {
   padding: 0;
+  flex-shrink: 0;
   border: 2px solid transparent;
   border-radius: 50%;
   background: none;
