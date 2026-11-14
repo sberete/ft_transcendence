@@ -19,6 +19,37 @@ services:
       timeout: 5s
       retries: 5
 
+  backup:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      - backup_data:/backups
+      - ./scripts/backup-db.sh:/scripts/backup-db.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          echo "Starting scheduled backup..."
+
+          if /bin/sh /scripts/backup-db.sh; then
+            echo "Backup completed. Next backup in 24 hours."
+            sleep 86400
+          else
+            echo "Backup failed. Retrying in 5 minutes."
+            sleep 300
+          fi
+        done
+
   backend:
     build:
       context: .
@@ -66,3 +97,4 @@ services:
 volumes:
   db_data:
   uploads_data:
+  backup_data:
