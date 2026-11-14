@@ -96,3 +96,4 @@ fn optional_env(name: &str)
 {
     std::env::var(name).ok().filter(|value| !value.trim().is_empty())
 }
+    
