@@ -62,7 +62,7 @@ services:
       - "8080:443"
     depends_on:
       - backend
-
+      
 volumes:
   db_data:
   uploads_data:
