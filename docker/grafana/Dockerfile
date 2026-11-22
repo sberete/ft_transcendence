@@ -5,3 +5,5 @@
 FROM docker.io/grafana/grafana:12.2.0
 
 COPY provisioning /etc/grafana/provisioning
+# Dashboards loaded by provisioning/dashboards/syncwatch.yml.
+COPY dashboards /etc/grafana/dashboards
