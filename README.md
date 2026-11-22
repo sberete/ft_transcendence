@@ -127,12 +127,15 @@ pair-programming assistant, not as an autonomous author:
 
 | Member | Roles | Responsibilities |
 |---|---|---|
-| sberete | Product Owner, Project Manager, Developer | Core application: account system, OAuth, social features, video catalogue, real-time rooms/chat, recommendations, notifications, i18n, search, styling, testing, and base infrastructure |
-| Imran Barbouch | Technical Lead, Developer | Devops/observability track: health check and status page, automated backups and disaster-recovery restore procedure, Prometheus/Grafana monitoring |
+| sberete | Product Owner, Developer | Core application: account system, OAuth, social features, video catalogue, real-time rooms/chat, recommendations, notifications, i18n, search, styling, testing, and base infrastructure |
+| ibarbouc | Technical Lead, Developer | Devops/observability track: health check and status page, automated backups and disaster-recovery restore procedure, Prometheus/Grafana monitoring |
+| ifadhli | Project Manager, Developer | Personal video upload (the `videos` table exists in the first migration but is currently unused, see "Database Schema") |
+| atoumi | Developer | Improvements to the external video catalogue aggregation (Internet Archive / PeerTube, `src/media`) |
+| ssadi-ou | Developer | Backend/Docker infrastructure and configuration |
 
-The team change (adding Imran) is registered with 42. The subject expects
-a 4-5 person team; this section will be updated again if further
-teammates join.
+This section will be filled in with each person's actual area once
+their work stabilizes and merges — kept honest rather than aspirational,
+same as the "Modules" table below.
 
 ## Project Management
 
