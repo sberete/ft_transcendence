@@ -86,6 +86,28 @@ services:
       db:
         condition: service_healthy
 
+  # Collects and stores the metrics of the backend and postgres-exporter
+  # (targets in docker/prometheus/prometheus.yml). Its web UI is published
+  # on 127.0.0.1 only: reachable from this machine for debugging, never
+  # from the network.
+  prometheus:
+    build:
+      context: docker/prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Older data is deleted automatically: a week is plenty for a demo
+      # and keeps the volume small.
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    # No depends_on: a target that isn't up yet is simply shown as DOWN
+    # until the next scrape. It also keeps Podman from refusing to
+    # recreate the backend while Prometheus "depends" on it.
+
   backend:
     build:
       context: .
@@ -134,3 +156,4 @@ volumes:
   db_data:
   uploads_data:
   backup_data:
+  prometheus_data:
