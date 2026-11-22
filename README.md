@@ -127,17 +127,22 @@ pair-programming assistant, not as an autonomous author:
 
 | Member | Roles | Responsibilities |
 |---|---|---|
-| sberete | Product Owner, Project Manager, Technical Lead, Developer | All of them — this project is currently being built solo. The subject expects a 4-5 person team; roles will be reassigned and this section rewritten honestly if/when teammates join. |
+| sberete | Product Owner, Project Manager, Developer | Core application: account system, OAuth, social features, video catalogue, real-time rooms/chat, recommendations, notifications, i18n, search, styling, testing, and base infrastructure |
+| Imran Barbouch | Technical Lead, Developer | Devops/observability track: health check and status page, automated backups and disaster-recovery restore procedure, Prometheus/Grafana monitoring |
+
+The team change (adding Imran) is registered with 42. The subject expects
+a 4-5 person team; this section will be updated again if further
+teammates join.
 
 ## Project Management
 
-With no team yet, there is no formal coordination process to describe.
 Work is organized as:
 
-- **Feature branches**, not person-based ones, so that a real teammate
-  could pick up a specific piece of work later without inheriting a
-  fabricated commit history: `rooms-rest`, `ws-core`, `frontend-chat`,
-  `frontend-sync`, `compliance`, merged into `main` as they stabilize.
+- **Feature branches per area**, not merged until the feature is
+  stable: `rooms-rest`, `ws-core`, `frontend-chat`, `frontend-sync`,
+  `compliance` for the core app; a separate `Imran` branch for the
+  devops/observability track, merged into `main` once its own services
+  (health check, backups, Prometheus/Grafana) were verified end-to-end.
 - **Git history** as the record of what was done and when — commit
   messages explain the *why*, not just the *what*.
 - A private working journal (outside this repository) tracking decisions,
@@ -166,11 +171,15 @@ Work is organized as:
 - **Real time**: native WebSockets on Axum/Tokio (no Socket.IO or similar
   library) — connection handling, rate limiting, and custom close codes
   implemented directly against [RFC 6455](https://www.rfc-editor.org/info/rfc6455).
-- **Infrastructure**: Docker Compose (`db`, `backend`, `frontend`
-  services), nginx as a reverse proxy terminating HTTPS (self-signed
-  certificate generated at image build time) and routing to the backend
-  over the internal Docker network — the backend publishes no port of its
-  own. A `Makefile` wraps the common commands.
+- **Infrastructure**: Docker Compose, 8 services — `db`, `backend`,
+  `frontend` for the core app; `monitoring-db-init`, `postgres-exporter`,
+  `prometheus`, `grafana` for observability; `backup` for automated
+  dumps. nginx terminates HTTPS (self-signed certificate generated at
+  image build time) and routes to the backend over the internal Docker
+  network — the backend publishes no port of its own, and the internal
+  metrics port (9091) is reachable only from Prometheus on that same
+  network, never from the browser. A `Makefile` wraps the common
+  commands.
 
 ## Database Schema
 
@@ -260,8 +269,9 @@ Notes:
 
 ## Features List
 
-All features below were designed and implemented by sberete (see "Team
-Information").
+Features below were designed and implemented by sberete, except the
+status page which is Imran's (see "Team Information" and "Individual
+Contributions").
 
 | Feature | Description |
 |---|---|
@@ -278,6 +288,7 @@ Information").
 | Multi-language | French (default), English, Spanish — switcher in the navbar, full coverage including legal pages |
 | Privacy Policy / Terms of Service | Accessible from the footer on every page |
 | HTTPS | Entire site served over TLS through an nginx reverse proxy |
+| Status page | Public `/status` page polling `GET /api/health` (a real `SELECT 1` against Postgres, not a static "ok"), with a manual retry button, translated in all 3 languages |
 
 ## Modules
 
@@ -312,8 +323,13 @@ must be fully functional and justified here, in the README.
 | Module | Category | Points | Status |
 |---|---|---|---|
 | Use a framework for both the frontend and backend | Web, Major | 2 | **Done** |
+| Monitoring system with Prometheus and Grafana | Devops, Major | 2 | **Done** |
+| Health check and status page system with automated backups and disaster recovery procedures | Devops, Minor | 1 | **Done** |
 
-**Why this counts**: Vue is explicitly listed as a frontend framework by
+5/5 — at the subject's bonus cap (chap. VII); no module here is claimed
+beyond what's verified working.
+
+**Use a framework for both the frontend and backend** — Vue is explicitly listed as a frontend framework by
 the subject (III.3), so that half isn't in question. Axum isn't in the
 subject's example list for the backend half (Express, Fastify, NestJS,
 Django, Flask, Rails) but meets the subject's own three-part definition
@@ -340,10 +356,39 @@ different name for the same examples:
 
 Full argument, with more code examples, in `docs/axum-as-framework.md`.
 
+**Monitoring system with Prometheus and Grafana** (by Imran) — the backend
+exposes HTTP request counters/durations/in-flight gauges and two
+app-level gauges (`syncwatch_active_rooms`, `syncwatch_room_members`,
+updated live on join/leave) on an internal-only port (`src/monitoring/mod.rs`,
+`src/ws/registry.rs`). Prometheus (`docker/prometheus/`) scrapes the
+backend and a `postgres-exporter`, with alerting rules that are
+unit-tested (`docker/prometheus/alerts.test.yml`) rather than
+hand-verified once. Grafana (`docker/grafana/`) ships with a dashboard
+baked into the image and provisioned automatically, Prometheus wired as
+its default datasource, and access restricted (anonymous access and
+self-signup disabled, bound to `127.0.0.1` only, admin password from an
+env var — never exposed to the public internet).
+
+**Health check and status page system with automated backups and
+disaster recovery procedures** (by Imran) — `/api/health`
+(`src/health/mod.rs`) runs a real `SELECT 1` against Postgres and returns
+503 on failure rather than a static "ok"; `/status`
+(`frontend/src/views/StatusView.vue`) is a real, translated (fr/en/es)
+user-facing page polling it, with a manual retry button. `scripts/backup-db.sh`
+dumps both the database (`pg_dump -Fc`) and the `uploads` volume on a
+schedule, verifying the integrity of each archive (`pg_restore --list`,
+`tar -tzf`) before publishing it and enforcing retention. `scripts/restore.sh`
+is the disaster-recovery half: it validates a backup pair before
+touching anything, takes a safety backup of the current state first,
+restores the database in a single transaction (all-or-nothing), restores
+the uploads, and restarts the backend even if the restore fails
+(`trap ... EXIT`).
+
 ## Individual Contributions
 
-Everything in this repository was built by **sberete**, working solo (see
-"Team Information" for why). Breakdown by area:
+Breakdown by area, per contributor (see "Team Information").
+
+### sberete
 
 - **Backend foundations**: Axum server setup, PostgreSQL pool, migrations,
   modular routing (`src/routes`), the `ApiError` → HTTP response mapping.
@@ -386,7 +431,21 @@ Everything in this repository was built by **sberete**, working solo (see
   "Challenges faced").
 - **Compliance**: Privacy Policy and Terms of Service pages, this README.
 
-**Challenges faced and how they were resolved**:
+### Imran Barbouch
+
+- **Health check and status page**: a real DB-aware health check
+  (`src/health/mod.rs`), the translated `/status` page
+  (`frontend/src/views/StatusView.vue`).
+- **Backups and disaster recovery**: `scripts/backup-db.sh` (dual backup
+  of the database and the uploads volume, integrity-checked, with
+  retention) and `scripts/restore.sh` (the restore/DR procedure, with a
+  safety backup taken before restoring and an all-or-nothing database
+  restore).
+- **Monitoring**: Prometheus/Grafana stack (`docker/prometheus`,
+  `docker/grafana`), backend instrumentation (`src/monitoring/mod.rs`),
+  and the live room-count gauges published from `src/ws/registry.rs`.
+
+**Challenges faced and how they were resolved** (sberete's part):
 - *Choosing Rust mid-piscine without prior experience in the language*:
   resolved by completing a dedicated set of warm-up exercises covering
   ownership, borrowing, traits, and error handling before writing any
