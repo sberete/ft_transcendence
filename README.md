@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by sberete.*
+*This project has been created as part of the 42 curriculum by sberete, ifadhli, ibarbouc, atoumi, ssadi-ou.*
 
 # SyncWatch
 
