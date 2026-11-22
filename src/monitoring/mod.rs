@@ -21,6 +21,8 @@ use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
 const REQUESTS_TOTAL: &str = "http_requests_total";
 const REQUEST_DURATION: &str = "http_request_duration_seconds";
 const REQUESTS_IN_FLIGHT: &str = "http_requests_in_flight";
+const ACTIVE_ROOMS: &str = "syncwatch_active_rooms";
+const ROOM_MEMBERS: &str = "syncwatch_room_members";
 
 // Histogram buckets (in seconds) for request durations: fine-grained
 // under 100 ms where most API calls land, coarser above. Real buckets
@@ -42,6 +44,12 @@ pub fn install()
     describe_counter!(REQUESTS_TOTAL, "HTTP requests handled, by method, route and status code.");
     describe_histogram!(REQUEST_DURATION, Unit::Seconds, "HTTP request duration, by method, route and status code.");
     describe_gauge!(REQUESTS_IN_FLIGHT, "HTTP requests currently being handled.");
+    describe_gauge!(ACTIVE_ROOMS, "Watch rooms with at least one connected member.");
+    describe_gauge!(ROOM_MEMBERS, "People connected to a watch room, all rooms combined.");
+
+    // Published at 0 right away, so the dashboard shows "0" rather than
+    // "No data" until the first room is opened.
+    set_live_rooms(0, 0);
 
     // Without the exporter's built-in HTTP listener, nobody drains the
     // histograms' internal buffers: do it periodically so memory stays flat.
@@ -73,6 +81,14 @@ pub async fn serve(handle: PrometheusHandle, port: u16)
         }
     });
     Ok(())
+}
+
+// Live room counters, updated by the WebSocket room registry on every
+// join and leave (see ws::registry).
+pub fn set_live_rooms(rooms: usize, members: usize)
+{
+    gauge!(ACTIVE_ROOMS).set(rooms as f64);
+    gauge!(ROOM_MEMBERS).set(members as f64);
 }
 
 // Middleware recording every request that matched a route. Applied with
