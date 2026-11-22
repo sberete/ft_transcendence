@@ -133,10 +133,6 @@ pair-programming assistant, not as an autonomous author:
 | atoumi | Developer | Improvements to the external video catalogue aggregation (Internet Archive / PeerTube, `src/media`) |
 | ssadi-ou | Developer | Backend/Docker infrastructure and configuration |
 
-This section will be filled in with each person's actual area once
-their work stabilizes and merges — kept honest rather than aspirational,
-same as the "Modules" table below.
-
 ## Project Management
 
 Work is organized as:
