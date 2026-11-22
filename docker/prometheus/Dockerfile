@@ -5,8 +5,14 @@
 # `make up` rebuilds images, so config changes are picked up there.
 FROM docker.io/prom/prometheus:v3.5.0
 
-COPY prometheus.yml /etc/prometheus/prometheus.yml
+# alerts.test.yml is never loaded by Prometheus (not in rule_files): it
+# only sits next to alerts.yml so the test below can find it.
+COPY prometheus.yml alerts.yml alerts.test.yml /etc/prometheus/
 
-# Fails the build on an invalid configuration, instead of a container
-# that crashes at startup.
+# Fails the build on an invalid configuration or rule file (checked
+# through rule_files), instead of a container that crashes at startup.
 RUN promtool check config /etc/prometheus/prometheus.yml
+
+# Unit tests of the alerts: fails the build if an alert no longer fires
+# (or fires) when it should.
+RUN promtool test rules /etc/prometheus/alerts.test.yml
