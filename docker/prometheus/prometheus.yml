@@ -6,8 +6,12 @@ global:
   # How often each target's /metrics is read. 15 s is precise enough for a
   # dashboard and keeps the stored data small.
   scrape_interval: 15s
-  # How often alerting rules are evaluated (rules come in step 5).
+  # How often alerting rules are evaluated.
   evaluation_interval: 15s
+
+# Alerting rules (backend/database down, 5xx rate, latency, connections).
+rule_files:
+  - alerts.yml
 
 scrape_configs:
   # Prometheus monitors itself (scrape duration, stored series...).
