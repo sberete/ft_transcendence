@@ -51,6 +51,41 @@ services:
           fi
         done
 
+  # One-shot: creates the read-only "monitoring" role used by
+  # postgres-exporter, then exits. Idempotent, so it simply runs again on
+  # every `make up` (see scripts/monitoring-db-init.sh).
+  monitoring-db-init:
+    image: docker.io/library/postgres:16-alpine
+    restart: "no"
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD}
+    volumes:
+      - ./scripts/monitoring-db-init.sh:/scripts/monitoring-db-init.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/monitoring-db-init.sh"]
+
+  # Translates PostgreSQL's statistics into Prometheus metrics, served on
+  # postgres-exporter:9187/metrics. No published port: only Prometheus,
+  # on the internal network, reads it. If the monitoring role doesn't
+  # exist yet, it reports pg_up 0 and reconnects on the next scrape.
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: db:5432/${POSTGRES_DB}?sslmode=disable
+      DATA_SOURCE_USER: monitoring
+      DATA_SOURCE_PASS: ${MONITORING_DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
   backend:
     build:
       context: .
