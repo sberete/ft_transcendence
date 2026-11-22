@@ -6,6 +6,8 @@
 pub struct Config {
     pub database_url: String,
     pub port: u16,
+    // Internal port of the Prometheus /metrics endpoint (see monitoring).
+    pub metrics_port: u16,
     pub peertube_url: String,
     // Public URL of the backend: used to build the OAuth redirect_uri.
     pub backend_url: String,
@@ -41,6 +43,10 @@ impl Config {
             .unwrap_or_else(|_| "8080".to_string())
             .parse()
             .expect("PORT must be a valid number");
+        let metrics_port = std::env::var("METRICS_PORT")
+            .unwrap_or_else(|_| "9091".to_string())
+            .parse()
+            .expect("METRICS_PORT must be a valid number");
         let peertube_url = std::env::var("PEERTUBE_URL")
             .unwrap_or_else(|_| "https://framatube.org".to_string());
 
@@ -53,6 +59,7 @@ impl Config {
         Config {
             database_url,
             port,
+            metrics_port,
             peertube_url,
             backend_url,
             frontend_urls,
