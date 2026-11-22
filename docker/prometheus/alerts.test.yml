@@ -1,0 +1,77 @@
+# Unit tests for alerts.yml, run by `promtool test rules` during the
+# Prometheus image build (see Dockerfile): a broken rule fails the build.
+# Each test feeds made-up series, minute by minute, and checks which
+# alerts are firing at a given time. Pending alerts don't count as firing.
+
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Backend answers, then stops answering from minute 1: the alert is
+  # pending at 1m, and fires once the condition has held for 1 minute.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="backend", instance="backend:9091"}'
+        values: "1 0 0 0"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: BackendDown
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: BackendDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: backend
+              instance: backend:9091
+            exp_annotations:
+              summary: Backend unreachable
+              description: Prometheus can't scrape backend:9091. Check `docker compose ps backend` and `docker compose logs backend`.
+
+  # 1 request/s, of which 1 in 7 is a 503 (about 14 % errors): pending
+  # for the first 5 minutes, then firing.
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="backend", method="GET", route="/health", status="200"}'
+        values: "0+60x15"
+      - series: 'http_requests_total{job="backend", method="GET", route="/health", status="503"}'
+        values: "0+10x15"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: HighErrorRate
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: HighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: High rate of 5xx responses
+              description: Over 5% of backend requests fail with a 5xx. Check `docker compose logs backend` and the database status.
+
+  # About 1 % errors: under the 5 % threshold, never fires.
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="backend", method="GET", route="/health", status="200"}'
+        values: "0+100x15"
+      - series: 'http_requests_total{job="backend", method="GET", route="/health", status="503"}'
+        values: "0+1x15"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HighErrorRate
+        exp_alerts: []
+
+  # A single 500 on an almost idle server (1 request per minute): the
+  # error ratio is high, but under the minimum traffic, so no alert.
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="backend", method="GET", route="/health", status="200"}'
+        values: "0+1x15"
+      - series: 'http_requests_total{job="backend", method="GET", route="/health", status="500"}'
+        values: "0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HighErrorRate
+        exp_alerts: []
