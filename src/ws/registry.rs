@@ -12,6 +12,7 @@ use axum::extract::ws::Message;
 use tokio::sync::mpsc;
 
 use super::protocol::{now_ms, MediaRef, PlaybackRef, RoomRef, UserRef};
+use crate::monitoring;
 
 pub type OutgoingTx = mpsc::UnboundedSender<Message>;
 
@@ -95,6 +96,7 @@ impl RoomRegistry {
         };
 
         room.members.insert(user.id, LiveMember { user, tx, joined_at: now_ms() });
+        publish_live_counts(&rooms);
         outcome
     }
 
@@ -131,6 +133,7 @@ impl RoomRegistry {
         if room_is_empty {
             rooms.remove(&room_id);
         }
+        publish_live_counts(&rooms);
 
         LeaveOutcome { room_is_empty, notify_remaining, new_owner_id }
     }
@@ -196,4 +199,13 @@ impl RoomRegistry {
         let notify = room.members.values().map(|m| m.tx.clone()).collect();
         Some((snapshot, room.media.clone(), notify))
     }
+}
+
+// Updates the Prometheus gauges (active rooms, connected members) from the
+// registry's current state. Called with the lock still held, so the
+// numbers always match what was just applied.
+fn publish_live_counts(rooms: &HashMap<i64, LiveRoom>)
+{
+    let members = rooms.values().map(|room| room.members.len()).sum();
+    monitoring::set_live_rooms(rooms.len(), members);
 }
