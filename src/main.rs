@@ -8,6 +8,7 @@ mod db;
 mod errors;
 mod friends;
 mod media;
+mod monitoring;
 mod notifications;
 mod recommendations;
 mod rooms;
