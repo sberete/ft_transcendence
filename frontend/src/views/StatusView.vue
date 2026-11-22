@@ -1,7 +1,9 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { BASE_URL } from '../services/api'
 
+const { t } = useI18n()
 const status = ref('checking')
 
 async function checkStatus() {
@@ -22,12 +24,12 @@ onMounted(checkStatus)
 <template>
   <main class="page">
     <section class="panel status-panel" aria-live="polite">
-      <h1>État du service</h1>
-      <p v-if="status === 'checking'">Vérification en cours…</p>
-      <p v-else-if="status === 'online'">🟢 Le service fonctionne.</p>
-      <p v-else>🔴 Le service est indisponible.</p>
+      <h1>{{ t('status.title') }}</h1>
+      <p v-if="status === 'checking'">{{ t('status.checking') }}</p>
+      <p v-else-if="status === 'online'">{{ t('status.online') }}</p>
+      <p v-else>{{ t('status.offline') }}</p>
       <button type="button" :disabled="status === 'checking'" @click="checkStatus">
-        Réessayer
+        {{ t('status.retry') }}
       </button>
     </section>
   </main>
