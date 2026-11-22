@@ -1,0 +1,88 @@
+# Alerting rules, evaluated by Prometheus every 15 s (evaluation_interval).
+# Each alert goes inactive -> pending (condition true, waiting for `for`)
+# -> firing (condition held for the whole `for` duration). Visible on the
+# Prometheus "Alerts" page and in the Grafana SyncWatch dashboard.
+#
+# Tested by alerts.test.yml (promtool test rules), run during the image
+# build: annotations there must match these ones exactly.
+
+groups:
+  - name: availability
+    rules:
+      # The backend's /metrics didn't answer: crashed, restarting, or the
+      # container is stopped.
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Backend unreachable
+          description: Prometheus can't scrape backend:9091. Check `docker compose ps backend` and `docker compose logs backend`.
+
+      # postgres-exporter itself is down: PostgreSQL metrics are missing,
+      # but the database may be fine.
+      - alert: PostgresExporterDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: PostgreSQL exporter unreachable
+          description: Prometheus can't scrape postgres-exporter:9187. Check `docker compose logs postgres-exporter`.
+
+      # The exporter answers but can't reach the database: the database is
+      # down, or the monitoring role's password no longer matches .env.
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL unreachable
+          description: postgres-exporter can't connect to the database. Check `docker compose ps db` and `docker compose logs postgres-exporter`.
+
+  - name: backend-http
+    rules:
+      # More than 5 % of requests answered with a 5xx over 5 minutes. The
+      # minimum traffic (0.05 req/s, i.e. 3 per minute) keeps a single
+      # error on an idle server from counting as "100 % errors".
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="backend", status=~"5.."}[5m]))
+            / sum(rate(http_requests_total{job="backend"}[5m]))
+          ) > 0.05
+          and sum(rate(http_requests_total{job="backend"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High rate of 5xx responses
+          description: Over 5% of backend requests fail with a 5xx. Check `docker compose logs backend` and the database status.
+
+      # 95 % of requests should take under one second.
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="backend"}[5m]))
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Slow backend responses
+          description: The 95th percentile of request duration is above 1 s. Check the slowest routes in the SyncWatch dashboard and the database load.
+
+  - name: postgres
+    rules:
+      # Close to max_connections: new connections (and so requests) will
+      # start failing.
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: PostgreSQL connections almost exhausted
+          description: Over 80% of max_connections are in use. Check the connections panel in the SyncWatch dashboard.
