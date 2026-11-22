@@ -14,6 +14,9 @@ sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "migra
 dotenvy = "0.15"
 env_logger = "0.11"
 log = "0.4"
+metrics = "0.24"
+# Only the Prometheus text renderer: the HTTP listener is our own Axum one.
+metrics-exporter-prometheus = { version = "0.17", default-features = false }
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"

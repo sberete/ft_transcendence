@@ -13,6 +13,7 @@ use crate::auth::{LoginRateLimiter, OAuthConfig};
 use crate::config::Config;
 use crate::db;
 use crate::media::MediaClient;
+use crate::monitoring;
 use crate::routes;
 use crate::ws::RoomRegistry;
 
@@ -29,6 +30,11 @@ pub async fn run() -> std::io::Result<()>
     db::run_migrations(&pool)
         .await
         .expect("failed to run database migrations");
+
+    // Installed before the app is built so the very first requests are
+    // already counted. Served on its own port, never through nginx.
+    let metrics = monitoring::install();
+    monitoring::serve(metrics, config.metrics_port).await?;
 
     log::info!("Starting server on 0.0.0.0:{}", config.port);
 
@@ -49,6 +55,7 @@ pub async fn run() -> std::io::Result<()>
 
     let app = routes::router(pool.clone(), rooms, frontend_origins)
         .nest_service("/uploads", ServeDir::new("uploads"))
+        .route_layer(axum::middleware::from_fn(monitoring::track))
         .layer(Extension(MediaClient::new(&config.peertube_url)))
         .layer(Extension(OAuthConfig::new(&config)))
         .layer(Extension(LoginRateLimiter::new()))

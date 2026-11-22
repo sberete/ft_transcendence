@@ -23,4 +23,6 @@ WORKDIR /app
 COPY --from=builder /app/target/release/ft_transcendence /usr/local/bin/ft_transcendence
 
 EXPOSE 8080
+# Prometheus metrics, internal network only (not published, not proxied)
+EXPOSE 9091
 CMD ["ft_transcendence"]

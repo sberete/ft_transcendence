@@ -1,0 +1,15 @@
+# Loads the dashboards in /etc/grafana/dashboards (copied from
+# docker/grafana/dashboards by the Dockerfile) at startup. The JSON files
+# are the source of truth: changes made in the UI can't be saved over
+# them (allowUiUpdates: false). To change a dashboard, edit it in the UI,
+# export it (Share -> Export -> JSON), and replace the file in the repo.
+apiVersion: 1
+
+providers:
+  - name: syncwatch
+    folder: SyncWatch
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards

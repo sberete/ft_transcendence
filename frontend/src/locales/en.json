@@ -311,5 +311,12 @@
     "tagline": "SyncWatch · educational project · public-domain and freely-licensed content",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service"
+  },
+  "status": {
+    "title": "Service status",
+    "checking": "Checking…",
+    "online": "🟢 The service is up and running.",
+    "offline": "🔴 The service is unavailable.",
+    "retry": "Retry"
   }
 }

@@ -1,0 +1,32 @@
+# Prometheus configuration: what to scrape, and how often.
+# Every target is a Compose service name on the internal network: none of
+# these ports is published on the host (see docker-compose.yml).
+
+global:
+  # How often each target's /metrics is read. 15 s is precise enough for a
+  # dashboard and keeps the stored data small.
+  scrape_interval: 15s
+  # How often alerting rules are evaluated.
+  evaluation_interval: 15s
+
+# Alerting rules (backend/database down, 5xx rate, latency, connections).
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  # Prometheus monitors itself (scrape duration, stored series...).
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Rust backend: HTTP requests, durations, in-flight requests
+  # (src/monitoring). Internal port, never proxied by nginx.
+  - job_name: backend
+    static_configs:
+      - targets: ["backend:9091"]
+
+  # PostgreSQL statistics, through postgres_exporter and its read-only
+  # "monitoring" role (scripts/monitoring-db-init.sh).
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]

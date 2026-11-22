@@ -19,6 +19,120 @@ services:
       timeout: 5s
       retries: 5
 
+  backup:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      - backup_data:/backups
+      - uploads_data:/uploads
+      - ./scripts/backup-db.sh:/scripts/backup-db.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          echo "Starting scheduled backup..."
+
+          if /bin/sh /scripts/backup-db.sh; then
+            echo "Backup completed. Next backup in 24 hours."
+            sleep 86400
+          else
+            echo "Backup failed. Retrying in 5 minutes."
+            sleep 300
+          fi
+        done
+
+  # One-shot: creates the read-only "monitoring" role used by
+  # postgres-exporter, then exits. Idempotent, so it simply runs again on
+  # every `make up` (see scripts/monitoring-db-init.sh).
+  monitoring-db-init:
+    image: docker.io/library/postgres:16-alpine
+    restart: "no"
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD}
+    volumes:
+      - ./scripts/monitoring-db-init.sh:/scripts/monitoring-db-init.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/monitoring-db-init.sh"]
+
+  # Translates PostgreSQL's statistics into Prometheus metrics, served on
+  # postgres-exporter:9187/metrics. No published port: only Prometheus,
+  # on the internal network, reads it. If the monitoring role doesn't
+  # exist yet, it reports pg_up 0 and reconnects on the next scrape.
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: db:5432/${POSTGRES_DB}?sslmode=disable
+      DATA_SOURCE_USER: monitoring
+      DATA_SOURCE_PASS: ${MONITORING_DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Collects and stores the metrics of the backend and postgres-exporter
+  # (targets in docker/prometheus/prometheus.yml). Its web UI is published
+  # on 127.0.0.1 only: reachable from this machine for debugging, never
+  # from the network.
+  prometheus:
+    build:
+      context: docker/prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Older data is deleted automatically: a week is plenty for a demo
+      # and keeps the volume small.
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    # No depends_on: a target that isn't up yet is simply shown as DOWN
+    # until the next scrape. It also keeps Podman from refusing to
+    # recreate the backend while Prometheus "depends" on it.
+
+  # Dashboards on top of Prometheus (data source provisioned from
+  # docker/grafana/provisioning). Published on 127.0.0.1:3001 only (3000
+  # is the native backend's port in `make dev`), behind a login: no
+  # anonymous access, no self sign-up, admin password from .env.
+  grafana:
+    build:
+      context: docker/grafana
+    restart: unless-stopped
+    environment:
+      # Only applied when the grafana_data volume is first created: to
+      # change it afterwards, see docs (grafana cli admin reset-admin-password).
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # No calls home (usage stats, update checks, Gravatar avatars).
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+
   backend:
     build:
       context: .
@@ -66,3 +180,6 @@ services:
 volumes:
   db_data:
   uploads_data:
+  backup_data:
+  prometheus_data:
+  grafana_data:

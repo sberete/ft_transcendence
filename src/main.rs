@@ -8,6 +8,7 @@ mod db;
 mod errors;
 mod friends;
 mod media;
+mod monitoring;
 mod notifications;
 mod recommendations;
 mod rooms;
@@ -15,6 +16,7 @@ mod routes;
 mod server;
 mod users;
 mod ws;
+mod health;
 
 // Starts the async runtime and immediately delegates to `server::run`.
 #[tokio::main]

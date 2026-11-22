@@ -51,6 +51,10 @@ const router = createRouter({
       path: '/terms',
       component: () => import('../views/TermsView.vue'),
     },
+    {
+      path: '/status',
+      component: () => import('../views/StatusView.vue'),
+    },
     { path: '/media', redirect: '/' },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

@@ -1,0 +1,20 @@
+# Declares Prometheus as Grafana's data source at startup ("provisioning"):
+# nothing to configure by hand in the UI, and the same setup on every
+# machine. Read-only in the UI (editable: false) so it can't drift from
+# this file.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    # Fixed uid: the dashboards (step 5) reference the data source by it.
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    # Compose service name, on the internal network.
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      # Same as Prometheus' scrape_interval: Grafana won't ask for a
+      # resolution finer than the data actually has.
+      timeInterval: 15s
